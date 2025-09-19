@@ -6,6 +6,7 @@
   data-customer-id="{{ customer.id }}"
   data-product-title="{{ product.title | escape }}"
   data-price="{{ product.price | money_without_currency }}"
+  data-product-img="{{ product.featured_image | img_url: 'master' }}"
 >
   <template x-if="!isWishlisted">
     <div>
@@ -60,6 +61,7 @@
       wishlist: [],
       allWishlistData: [],
       isWishlisted: false,
+      productImage: null,
 
       async init() {
         this.customerId = this.$el.dataset.customerId || null;
@@ -101,6 +103,7 @@
         if (parentElement) {
           this.productTitle = parentElement.dataset.productTitle;
           this.price = parentElement.dataset.price;
+          this.productImage = parentElement.dataset.productImg;
         }
 
         // send formData (works for both guest and logged-in)
@@ -111,7 +114,7 @@
         formData.append("quantity", "1");
         formData.append("price", this.price);
         formData.append("shop", "{{shop.permanent_domain}}");
-        formData.append("productImage", "{{ product.featured_image | img_url: 'master' }}");
+        formData.append("productImage", this.productImage);
 
         var requestOptions = {
           method:"POST",
