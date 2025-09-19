@@ -2,11 +2,11 @@
 
 client_id = "dd576c5950635dc4814ee51d0ad990f1"
 name = "wishhub"
-application_url = "https://example.com"
+application_url = "https://wishhub.onrender.com"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = true
+automatically_update_urls_on_dev = false
 include_config_on_deploy = true
 
 [webhooks]
