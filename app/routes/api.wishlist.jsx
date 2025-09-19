@@ -10,7 +10,7 @@
 
 //   const allowOrigin = SHOPIFY_ORIGIN_REGEX.test(origin)
 //     ? origin
-//     : "https://wishhubwalstar.myshopify.com";
+//     : "https://wishhub-2.myshopify.com";
 
 //   const headers = new Headers(response.headers);
 //   headers.set("Access-Control-Allow-Origin", allowOrigin);
@@ -195,7 +195,7 @@ function withCors(request, response) {
   const origin = request.headers.get("origin") || "";
   const allowOrigin = SHOPIFY_ORIGIN_REGEX.test(origin)
     ? origin
-    : "https://wishhubwalstar.myshopify.com";
+    : "https://wishhub-2.myshopify.com";
 
   const headers = new Headers(response.headers || {});
   headers.set("Access-Control-Allow-Origin", allowOrigin);
