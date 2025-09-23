@@ -44,6 +44,26 @@ const shopify = shopifyApp({
       ],
     },
   },
+  auth: {
+    afterAuth: async ({ session, admin, redirect }) => {
+      // (Optional) do any setup here (register webhooks, etc.)
+      const webhooksToRegister = [
+      {
+        path: "/webhooks/app/uninstalled",
+        topic: "APP_UNINSTALLED",
+      },
+      {
+        path: "/webhooks/app/update",
+        topic: "APP_UPDATE",
+      },
+    ];
+
+    await registerWebhooks({ session, webhooks: webhooksToRegister });
+
+      // Redirect merchant into your embedded app UI
+      return redirect("/app");
+    },
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),

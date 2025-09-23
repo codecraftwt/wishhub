@@ -25,4 +25,4 @@ api_version = "2025-10"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://wishhub.onrender.com/api/auth/callback" ]
+redirect_urls = [ "https://wishhub.onrender.com/auth/callback" ]
