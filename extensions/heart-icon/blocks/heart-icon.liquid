@@ -4,6 +4,7 @@
   x-cloak
   class="catalog-heart"
   data-customer-id="{{ customer.id }}"
+  data-product-id="{{ block.settings.product.id | escape }}"
   data-product-title="{{ product.title | escape }}"
   data-price="{{ product.price | money_without_currency }}"
   data-product-img="{{ product.featured_image | img_url: 'master' }}"

@@ -44,23 +44,59 @@ const shopify = shopifyApp({
       ],
     },
   },
+ webhooks: {
+    path: "/webhooks",
+  },
   auth: {
     afterAuth: async ({ session, admin, redirect }) => {
-      // (Optional) do any setup here (register webhooks, etc.)
-      const webhooksToRegister = [
-      {
-        path: "/webhooks/app/uninstalled",
-        topic: "APP_UNINSTALLED",
-      },
-      {
-        path: "/webhooks/app/update",
-        topic: "APP_UPDATE",
-      },
-    ];
+      try {
+        console.log('Registering webhooks for shop:', session.shop);
+        
+        const webhooksToRegister = [
+          {
+            path: "/webhooks/app/uninstalled",
+            topic: "APP_UNINSTALLED",
+          },
+          {
+            path: "/webhooks/shop/update",
+            topic: "SHOP_UPDATE",
+          },
+          {
+            path: "/webhooks/app/update",
+            topic: "APP_UPDATE",
+          },
+          {
+            path: "/webhooks/app/scopes_update",
+            topic: "APP_SCOPES_UPDATE",
+          },
+          // GDPR mandatory webhooks
+          {
+            path: "/webhooks/customers/data_request",
+            topic: "CUSTOMERS_DATA_REQUEST",
+          },
+          {
+            path: "/webhooks/customers/redact",
+            topic: "CUSTOMERS_REDACT",
+          },
+          {
+            path: "/webhooks/shop/redact",
+            topic: "SHOP_REDACT",
+          },
+        ];
 
-    await registerWebhooks({ session, webhooks: webhooksToRegister });
+        const registration = await registerWebhooks({ session, webhooks: webhooksToRegister });
+        console.log("Webhook registration result:", registerResult);
+        
+        if (registration.success) {
+          console.log('Webhooks registered successfully');
+        } else {
+          console.error('Webhook registration failed:', registration.result);
+        }
 
-      // Redirect merchant into your embedded app UI
+      } catch (error) {
+        console.error('Error in afterAuth:', error);
+      }
+
       return redirect("/app");
     },
   },
