@@ -1,5 +1,5 @@
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import { authenticate } from "../../../shopify.server";
+import db from "../../../db.server";
 
 export const action = async ({ request }) => {
   try {
@@ -15,8 +15,8 @@ export const action = async ({ request }) => {
     }
 
     return new Response("Webhook verified", { status: 200 });
-  } catch (err) {
-    console.error("Webhook verification failed:", err);
-    return new Response("Invalid webhook", { status: 401 });
+  } catch (error) {
+    console.error("❌ Webhook verification failed:", error);
+    return new Response("Unauthorized", { status: 401 });
   }
 };
