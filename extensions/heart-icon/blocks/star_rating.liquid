@@ -1,7 +1,6 @@
-<div class="wishlist-button" x-data="wishlist">
+<div class="wishlist-button" x-data="starWishlist" data-customer-id="{{ customer.id }}" data-product-id="{{ product.id }}" data-product-title="{{ product.title | escape }}" data-product-price="{{ product.price }}" data-product-image="{{ product.featured_image.src | img_url: 'large' }}">
 
-  <button type="button" @click="addtoWishlist" style="display: inline-flex; justify-content: center; align-items: center; width: 96%; height: 50px; background-color: #000; color: #fff; font-size: 1.4rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;">
-    <!-- Heart icon SVG on the left -->
+  <button type="button" @click="toggleWishlist" :style="`display: inline-flex; justify-content: center; align-items: center; width: 100%; height: 50px; background-color: ${isWishlisted ? '#d72c0d' : '#000'}; color: #fff; font-size: 1.4rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;`" x-text="isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24" style="margin-right: 0.5rem;">
       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
               2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09
@@ -9,79 +8,194 @@
               19.58 3 22 5.42 22 8.5
               c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
     </svg>
-    Add to WishList
   </button>
 </div>
 
-<!-- Toastr CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-<!-- jQuery (required for Toastr) -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Toastr JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
+<script>
+  const productData = {
+    id: "{{ product.id }}",
+    title: "{{ product.title | escape }}",
+    price: "{{ product.price }}",
+    image: "{{ product.featured_image.src | img_url: 'large' }}"
+  };
+</script>
+
  <script>
-  // Initialize Toastr with custom settings
-      toastr.options = {
-        "closeButton": true,
-        "debug": false,
-        "newestOnTop": true,
-        "progressBar": true,
-        "positionClass": "toast-top-right",
-        "preventDuplicates": false,
-        "onclick": null,
-        "showDuration": "300",
-        "hideDuration": "1000",
-        "timeOut": "3000",
-        "extendedTimeOut": "1000",
-        "showEasing": "swing",
-        "hideEasing": "linear",
-        "showMethod": "fadeIn",
-        "hideMethod": "fadeOut"
-      };
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('wishlist', () => ({
-                wishlisted: false,
-                apiUrl : "https://wishhub.onrender.com",
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('starWishlist', () => ({
+      apiUrl: "https://wishhub.onrender.com",
+      isWishlisted: false,
 
-                addtoWishlist() {
-                    var formData = new FormData();
-                     formData.append("customerId", "{{customer.id}}");
-                     formData.append("productId", "{{product.id}}");
-                     formData.append("productTitle", "{{ product.title | escape }}");
-                     formData.append("quantity", "1");
-                     formData.append("price", "{{product.price | money_without_currency}}");
-                     formData.append("shop", "{{shop.permanent_domain}}");
-                     formData.append("productImage", "{{ product.featured_image | img_url: 'master' }}");
+      async init() {
+        const productId = this.$el.dataset.productId || productData.id;
+        const customerId = this.$el.dataset.customerId || "{{ customer.id }}";
 
-                     var requestOptions = {
-                      method:"POST",
-                      body: formData,
-                      redirect: 'follow',
-                      credentials: "include",
-                     };
+        if (customerId) {
+          try {
+            const res = await fetch(`${this.apiUrl}/api/wishlist?customerId=${customerId}`, {
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const data = await res.json();
+              this.isWishlisted = data.wishlists.some((i) => String(i.productId) === String(productId));
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        } else {
+          const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+          this.isWishlisted = guest.some((i) => String(i.productId) === String(productId));
+        }
+      },
 
-                    fetch(this.apiUrl +"/api/wishlist", requestOptions)
-                    .then(result => {
-                      if(result.status === 200){
-                      // Toastr success notification
-                      toastr.success('Item added to Wishlist!', 'Success', {
-                        timeOut: 2000,
-                        positionClass: "toast-top-right"
-                      });
-                      }
-                    })
-                    .catch(error => {console.error("error : ",error)
-                      // Toastr error notification
-                      toastr.error('Failed to add item to Wishlist', 'Error', {
-                        timeOut: 2000
-                      });
-                    })
-                }
-            }))
-        })
-    </script>
+      async toggleWishlist() {
+        const wasWishlisted = this.isWishlisted; 
+        this.isWishlisted = !this.isWishlisted; 
+
+        if (this.isWishlisted) {
+          await this.addtoWishlist(wasWishlisted);
+        } else {
+          await this.removeFromWishlist(wasWishlisted);
+        }
+      },
+
+      async removeFromWishlist(wasWishlisted) {
+        const productId = this.$el.dataset.productId || productData.id;
+        const productTitle = this.$el.dataset.productTitle || productData.title;
+        const customerId = this.$el.dataset.customerId || "{{ customer.id }}";
+
+        if (customerId) {
+          const formData = new FormData();
+          formData.append('customerId', customerId);
+          formData.append('isLoggedIn', 'true');
+          formData.append('productId', productId);
+          formData.append('productTitle', productTitle);
+          formData.append('shop', '{{shop.permanent_domain}}');
+          formData.append('_action', 'DELETE');
+          try {
+            const res = await fetch(this.apiUrl + "/api/wishlist", {
+              method: 'POST',
+              body: formData,
+              credentials: 'include',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+              toastr.success('Removed from Wishlist!', 'Success', {
+                timeOut: 2000,
+                positionClass: "toast-top-right"
+              });
+            } else {
+              this.isWishlisted = wasWishlisted; 
+              toastr.error('Failed to remove from Wishlist', 'Error', {
+                timeOut: 2000
+              });
+            }
+          } catch (err) {
+            this.isWishlisted = wasWishlisted; 
+            toastr.error('Error removing from Wishlist', 'Error', {
+              timeOut: 2000
+            });
+          }
+        } else {
+          const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+          const idx = guest.findIndex((i) => i.productId === productId);
+          if (idx > -1) {
+            guest.splice(idx, 1);
+            localStorage.setItem('guestWishlist', JSON.stringify(guest));
+            toastr.success('Removed from Wishlist!', 'Success', {
+              timeOut: 2000,
+              positionClass: "toast-top-right"
+            });
+          } else {
+            this.isWishlisted = wasWishlisted; 
+            toastr.error('Item not found in Wishlist', 'Error', {
+              timeOut: 2000
+            });
+          }
+        }
+      },
+
+      async addtoWishlist(wasWishlisted) {
+        const productId = this.$el.dataset.productId || productData.id;
+        const productTitle = this.$el.dataset.productTitle || productData.title;
+        const price = this.$el.dataset.productPrice || productData.price;
+        const productImage = this.$el.dataset.productImage || productData.image;
+        const customerId = this.$el.dataset.customerId || "{{ customer.id }}";
+
+        if (!productId) {
+          this.isWishlisted = wasWishlisted; 
+          toastr.error('Product information not found. Please refresh the page.', 'Error', {
+            timeOut: 2000
+          });
+          return;
+        }
+
+        if (customerId) {
+          const formData = new FormData();
+          formData.append('customerId', customerId);
+          formData.append('isLoggedIn', 'true');
+          formData.append('productId', productId);
+          formData.append('productTitle', productTitle);
+          formData.append('quantity', '1');
+          formData.append('price', (parseFloat(price) / 100).toFixed(2));
+          formData.append('shop', '{{shop.permanent_domain}}');
+          formData.append('productImage', productImage);
+          formData.append('_action', 'CREATE');
+          try {
+            const res = await fetch(this.apiUrl + "/api/wishlist", {
+              method: 'POST',
+              body: formData,
+              credentials: 'include',
+            });
+            if (res.status === 200) {
+              toastr.success('Item added to Wishlist!', 'Success', {
+                timeOut: 2000,
+                positionClass: "toast-top-right"
+              });
+            } else {
+              this.isWishlisted = wasWishlisted; 
+              toastr.error('Failed to add item to Wishlist', 'Error', {
+                timeOut: 2000
+              });
+            }
+          } catch (error) {
+            this.isWishlisted = wasWishlisted; 
+            toastr.error('Error adding to Wishlist', 'Error', {
+              timeOut: 2000
+            });
+          }
+        } else {
+          const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+          if (!guest.find((i) => i.productId === productId)) {
+            guest.push({
+              productId: productId,
+              productTitle: productTitle,
+              price: (parseFloat(price) / 100).toFixed(2),
+              productImage: productImage,
+              quantity: 1,
+              shop: '{{shop.permanent_domain}}',
+            });
+            localStorage.setItem('guestWishlist', JSON.stringify(guest));
+            toastr.success('Item added to Wishlist!', 'Success', {
+              timeOut: 2000,
+              positionClass: "toast-top-right"
+            });
+          } else {
+            this.isWishlisted = wasWishlisted;
+            toastr.warning('Item already in Wishlist', 'Warning', {
+              timeOut: 2000
+            });
+          }
+        }
+      }
+    }));
+  });
+</script>
 
 <style>
 .polaris-banner {
@@ -118,7 +232,7 @@
   "target": "section",
   "settings": [
     { "type": "product", "id": "product", "label": "product", "autofill": true },
-    { "type": "color", "id": "colour", "label": "Star Colour", "default": "#ff0000" }
+    { "type": "color", "id": "colour", "label": "Star Colour", "default": "#ff0000"}
   ]
 }
 {% endschema %}

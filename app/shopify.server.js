@@ -69,7 +69,7 @@ const shopify = shopifyApp({
             path: "/webhooks/app/scopes_update",
             topic: "APP_SCOPES_UPDATE",
           },
-          // GDPR mandatory webhooks
+        
           {
             path: "/webhooks/customers/data_request",
             topic: "CUSTOMERS_DATA_REQUEST",
@@ -85,9 +85,9 @@ const shopify = shopifyApp({
         ];
 
         const registration = await registerWebhooks({ session, webhooks: webhooksToRegister });
-        console.log("Webhook registration result:", registerResult);
+        console.log("Webhook registration result:", registration);
         
-        if (registration.success) {
+        if (registration && registration.success) {
           console.log('Webhooks registered successfully');
         } else {
           console.error('Webhook registration failed:', registration.result);

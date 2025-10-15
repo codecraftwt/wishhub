@@ -7,7 +7,7 @@ export const action = async ({ request }) => {
     console.log(`✅ Verified ${topic} webhook for ${shop}`);
 
     // Delete customer data
-    // const customerId = payload.customer?.id;
+    const customerId = payload.customer?.id;
     if (customerId) {
       await db.customerData.deleteMany({
         where: { 

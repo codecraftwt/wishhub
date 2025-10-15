@@ -1,286 +1,357 @@
-<div
-  x-data="wishlist"
-  x-init="init()"
-  x-cloak
-  class="catalog-heart"
-  data-customer-id="{{ customer.id }}"
-  data-product-id="{{ block.settings.product.id | escape }}"
-  data-product-title="{{ product.title | escape }}"
-  data-price="{{ product.price | money_without_currency }}"
-  data-product-img="{{ product.featured_image | img_url: 'master' }}"
->
-  <template x-if="!isWishlisted">
-    <div>
-      <svg
-        @click="toggleWishlist()"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        class="icon-heart"
-        aria-hidden="true"
-      >
-        <path
-          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
-             2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09
-             C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
-             c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-        />
-      </svg>
-    </div>
-  </template>
+<div id="wishlist-app-embed">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
-  <template x-if="isWishlisted">
-    <div>
-      <svg
-        @click="toggleWishlist()"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        class="icon-heart filled"
-        aria-hidden="true"
-      >
-        <path
-          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
-             2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09
-             C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
-             c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-        />
-      </svg>
-    </div>
-  </template>
-</div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      toastr.options = {
+        closeButton: true,
+        newestOnTop: true,
+        progressBar: true,
+        positionClass: 'toast-top-right',
+        showDuration: '300',
+        hideDuration: '1000',
+        timeOut: '3000',
+        extendedTimeOut: '1000',
+        showEasing: 'swing',
+        hideEasing: 'linear',
+        showMethod: 'fadeIn',
+        hideMethod: 'fadeOut',
+      };
 
-<!-- Toastr CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-<!-- jQuery (required for Toastr) -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Toastr JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+      const apiUrl = '{{ block.settings.api_url }}';
+      const customerId = '{{ customer.id }}' || null;
 
-<script>
-  // Initialize Toastr with custom settings
-  toastr.options = {
-    "closeButton": true,
-    "debug": false,
-    "newestOnTop": true,
-    "progressBar": true,
-    "positionClass": "toast-top-right",
-    "preventDuplicates": false,
-    "onclick": null,
-    "showDuration": "300",
-    "hideDuration": "1000",
-    "timeOut": "3000",
-    "extendedTimeOut": "1000",
-    "showEasing": "swing",
-    "hideEasing": "linear",
-    "showMethod": "fadeIn",
-    "hideMethod": "fadeOut"
-  };
 
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('wishlist', () => ({
-      apiUrl : "https://wishhub.onrender.com",
-      customerId: null,
-      productId: null,
-      productTitle: null,
-      price: null,
-      delete_id : null,
-      wishlist: [],
-      allWishlistData: [],
-      isWishlisted: false,
-      productImage: null,
+      const extractProductInfo = (card) => {
+       
+        let productId =
+          card.dataset.productId ||
+          card.getAttribute('data-product-id') ||
+          card.querySelector('form[action*="/cart/add"] input[name="id"]')?.value ||
+          card.querySelector('input[type="hidden"][name*="product" i],input[type="hidden"][id*="product" i]')?.value ||
+          (() => {
+            let el = card.querySelector('[id^="CardLink-"],[id^="StandardCardNoMediaLink-"]');
+            if (el && el.id) {
+              let match = el.id.match(/-(\d+)$/);
+              return match ? match[1] : null;
+            }
+            return null;
+          })() ||
+          (() => {
+            let a = card.querySelector('a[href*="/products/"]');
+            if (a) {
+              return a.closest('div')?.querySelector('input[name="id"]')?.value || null;
+            }
+            return null;
+          })() ||
+          (() => {
+            let m = Array.from(card.querySelectorAll('[id]')).map(el => el.id.match(/\d{6,}/)).find(Boolean);
+            return m ? m[0] : null;
+          })() ||
+          null;
 
-      async init() {
-        this.customerId = this.$el.dataset.customerId || null;
-        await this.fetchWishlist();
-        const parentElement = this.$el.closest('.catalog-heart-container');
-        if (parentElement) {
-            const parentProductId = parentElement.dataset.productId;
-            this.productId = parentProductId;
-            this.isWishlisted = this.wishlist.includes(String(parentProductId));
+        let productTitle =
+          card.dataset.productTitle ||
+          card.getAttribute('data-product-title') ||
+          card.querySelector('h2, h3, [class*="heading"], [class*="title"]')?.innerText?.trim() ||
+          card.querySelector('a.full-unstyled-link')?.innerText?.trim() ||
+          'Product';
+
+        let productImg =
+          card.dataset.productImg ||
+          card.querySelector('img')?.src ||
+          '';
+
+        let price = '';
+        const priceElement = card.querySelector('.price,[data-price],[class*="price"]');
+        if (priceElement) {
+          price = priceElement.textContent.replace(/[^\d.]/g, '');
         } else {
-            console.log('Parent div with class "catalog-heart-container" not found');
+          price = card.dataset.price || card.getAttribute('data-price') || '';
         }
-      },
 
-      async fetchWishlist() {
-        try {
-          // include credentials so cookies are sent/accepted
-          const url = `${this.apiUrl}/api/wishlist${this.customerId ? `?customerId=${this.customerId}` : ''}`;
-          const res  = await fetch(url, { credentials: "include" });
-          if (!res.ok) {
-            console.error("Failed to fetch wishlist:", res.status);
+        if (price && !price.includes('.')) {
+          price = (parseFloat(price) / 100).toFixed(2);
+        }
+
+        return { productId, productTitle, productImg, price };
+      };
+
+      const injectHeart = (card) => {
+        if (card.querySelector('.catalog-heart')) return;
+
+        const { productId, productTitle, productImg, price } = extractProductInfo(card);
+        if (!productId) return; // Don't inject if ID missing
+
+        const heartDiv = document.createElement('div');
+        heartDiv.classList.add('catalog-heart');
+        heartDiv.dataset.customerId = customerId || '';
+        heartDiv.dataset.productId = productId;
+        heartDiv.dataset.productTitle = productTitle;
+        heartDiv.dataset.price = price;
+        heartDiv.dataset.productImg = productImg;
+
+        let position = '{{ block.settings.position }}';
+        heartDiv.style.position = 'absolute';
+        if (position.includes('top')) heartDiv.style.top = '10px';
+        if (position.includes('bottom')) heartDiv.style.bottom = '10px';
+        if (position.includes('left')) heartDiv.style.left = '10px';
+        if (position.includes('right')) heartDiv.style.right = '10px';
+
+        if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
+
+        heartDiv.innerHTML = `
+          <div x-data="wishlist" x-init="init()" x-cloak>
+            <template x-if="!isWishlisted">
+              <div>
+                <svg @click="toggleWishlist()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="icon-heart" aria-hidden="true">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
+                      2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09
+                      C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
+                      c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+              </div>
+            </template>
+            <template x-if="isWishlisted">
+              <div>
+                <svg @click="toggleWishlist()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="icon-heart filled" aria-hidden="true">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
+                      2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09
+                      C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
+                      c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+              </div>
+            </template>
+          </div>
+        `;
+        card.appendChild(heartDiv);
+        Alpine.initTree(heartDiv);
+      };
+
+      const addHeartsToAllCards = () => {
+        const cards = document.querySelectorAll(
+          '.product-card, .card-wrapper, [data-product-id], [data-product-title]'
+        );
+        cards.forEach((card) => {
+          const hasImg = card.querySelector('img');
+          if (hasImg) injectHeart(card);
+        });
+      };
+
+      addHeartsToAllCards();
+
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (
+              node.nodeType === 1 &&
+              node.matches('.product-card, .grid__item, .card-wrapper, [data-product-id], [data-product-title]')
+            ) {
+              addHeartsToAllCards();
+            }
+          });
+        });
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('wishlist', () => ({
+        apiUrl: '{{ block.settings.api_url }}',
+        customerId: null,
+        productId: null,
+        productTitle: null,
+        price: null,
+        productImage: null,
+        wishlist: [],
+        allWishlistData: [],
+        isWishlisted: false,
+
+        async init() {
+          const el = this.$el.closest('.catalog-heart');
+          if (!el) {
+            console.error('Wishlist init error: .catalog-heart element not found');
             return;
           }
-          const data = await res.json();
-          this.allWishlistData = data.wishlists || [];
-          // normalize wishlist as array of productIds (string)
-          this.wishlist = this.allWishlistData.map(item => String(item.productId || item.id));
-        } catch (e) {
-          console.error("Error fetching wishlist:", e);
-        }
-      },
-
-      toggleWishlist() {
-        this.isWishlisted ? this.remove() : this.addtoWishlist();
-      },
-
-      addtoWishlist() {
-        const parentElement = this.$el.closest('.catalog-heart-container');
-        if (parentElement) {
-          this.productTitle = parentElement.dataset.productTitle;
-          this.price = parentElement.dataset.price;
-          this.productImage = parentElement.dataset.productImg;
-        }
-
-        // send formData (works for both guest and logged-in)
-        var formData = new FormData();
-        formData.append('customerId', this.customerId || '');
-        formData.append('productId', this.productId);
-        formData.append("productTitle", this.productTitle);
-        formData.append("quantity", "1");
-        formData.append("price", this.price);
-        formData.append("shop", "{{shop.permanent_domain}}");
-        formData.append("productImage", this.productImage);
-
-        var requestOptions = {
-          method:"POST",
-          body: formData,
-          redirect: 'follow',
-          credentials: "include" // important for cookie flows
-        };
-
-        fetch(this.apiUrl + "/api/wishlist", requestOptions)
-          .then(async (result) => {
-            if (result.ok) {
-              // update local state based on returned wishlists if provided
-              const response = await result.json().catch(() => ({}));
-              if (response.wishlists) {
-                this.allWishlistData = response.wishlists;
-                this.wishlist = this.allWishlistData.map(item => String(item.productId || item.id));
-              }
-              
-              // Toastr success notification
-              toastr.success('Item added to Wishlist!', 'Success', {
-                timeOut: 2000,
-                positionClass: "toast-top-right"
-              });
-              
-              this.refresh();
-              this.productTitle = null;
-              this.price = null;
-            } else {
-              console.error("Add to wishlist failed", result.status);
-              // Toastr error notification
-              toastr.error('Failed to add item to Wishlist', 'Error', {
-                timeOut: 2000
-              });
-            }
-          })
-          .catch(error => {
-            console.error("error : ",error);
-            // Toastr error notification
-            toastr.error('Network error occurred', 'Error', {
-              timeOut: 2000
-            });
-          });
-      },
-
-      async remove() {
-        if (this.allWishlistData && this.allWishlistData.length) {
-          const selectedWishlist = this.allWishlistData.filter(item => String(item.productId) === String(this.productId) || String(item.id) === String(this.productId));
-          this.delete_id = selectedWishlist[0]?.id || selectedWishlist[0]?.productId;
-        }
-
-        if (!this.delete_id) {
-          console.warn('No id on product, cannot delete');
-          toastr.warning('Item not found in wishlist', 'Warning', {
-            timeOut: 2000
-          });
-          return;
-        }
-
-        try {
-          const res = await fetch(`${this.apiUrl}/api/wishlist`, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ action: "DELETE", id: this.delete_id, customerId: this.customerId || undefined }),
-          });
-
-          if (!res.ok) {
-            throw new Error(`Delete failed: ${res.status}`);
-          }
-
-          await this.refresh();
-          
-          // Toastr success notification for removal
-          toastr.success('Item removed from Wishlist!', 'Success', {
-            timeOut: 2000,
-            positionClass: "toast-top-right"
-          });
-        } catch (err) {
-          console.error('Failed to remove wishlist item:', err);
-          // Toastr error notification
-          toastr.error('Failed to remove item from Wishlist', 'Error', {
-            timeOut: 3000
-          });
-        }
-      },
-
-      async refresh() {
-        try {
+          this.customerId = el.dataset.customerId || null;
+          this.productId = el.dataset.productId || null;
+          this.productTitle = el.dataset.productTitle || '';
+          this.price = el.dataset.price || '';
+          this.productImage = el.dataset.productImg || '';
           await this.fetchWishlist();
           this.isWishlisted = this.wishlist.includes(String(this.productId));
-        } catch (e) {
-          console.error("Error refreshing wishlist:", e);
-        }
-      },
-    }));
-  });
-</script>
+        },
 
-<style>
-  .icon-heart {
-    width: 24px;
-    height: 24px;
-    fill: none;
-    stroke: red;
-    stroke-width: 2;
-    transition: fill 0.3s ease, stroke 0.3s ease;
-    cursor: pointer;
-  }
-  .icon-heart.filled {
-    fill: red;
-    stroke: red;
-  }
-  
-#toast-container > .toast {
-   background-color: #fff;
-   border: 1px solid #ddd;
-   color: #333;
-}
+        async fetchWishlist() {
+          if (this.customerId) {
+            try {
+              const res = await fetch(`${this.apiUrl}/api/wishlist?customerId=${this.customerId}`, {
+                credentials: 'include',
+              });
+              if (res.ok) {
+                const data = await res.json();
+                this.allWishlistData = data.wishlists || [];
+                this.wishlist = this.allWishlistData.map((i) => String(i.productId || i.id));
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          } else {
+            const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+            this.allWishlistData = guest;
+            this.wishlist = guest.map((i) => String(i.productId));
+          }
+        },
 
-#toast-container > .toast-success {
-   border-left: 4px solid #5e8e3e;
-}
+        toggleWishlist() {
+          this.isWishlisted ? this.remove() : this.addtoWishlist();
+        },
 
-#toast-container > .toast-error {
-   border-left: 4px solid #d72c0d;
-}
+        async addtoWishlist() {
+          this.isWishlisted = true;
+          if (this.customerId) {
+            const formData = new FormData();
+            formData.append('customerId', this.customerId);
+            formData.append('isLoggedIn', 'true');
+            formData.append('productId', this.productId);
+            formData.append('productTitle', this.productTitle);
+            formData.append('quantity', '1');
+            formData.append('price', this.price);
+            formData.append('shop', '{{shop.permanent_domain}}');
+            formData.append('productImage', this.productImage);
+            formData.append('_action', 'CREATE');
+            try {
+              const res = await fetch(`${this.apiUrl}/api/wishlist`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok && data.ok) {
+                await this.fetchWishlist();
+                toastr.success('Added to Wishlist!');
+              } else {
+                this.isWishlisted = false;
+                toastr.error('Failed to add');
+              }
+            } catch (err) {
+              this.isWishlisted = false;
+              toastr.error('Error');
+            }
+          } else {
+            const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+            if (!guest.find((i) => i.productId === this.productId)) {
+              guest.push({
+                productId: this.productId,
+                productTitle: this.productTitle,
+                price: this.price,
+                productImage: this.productImage,
+                quantity: 1,
+                shop: '{{shop.permanent_domain}}',
+              });
+            }
+            localStorage.setItem('guestWishlist', JSON.stringify(guest));
+            this.allWishlistData = guest;
+            this.wishlist = guest.map((i) => String(i.productId));
+            toastr.success('Added to Wishlist!');
+          }
+        },
 
-#toast-container > .toast-warning {
-   border-left: 4px solid #e6a700;
-}
-</style>
+        async remove() {
+          this.isWishlisted = false;
+          if (this.customerId) {
+            const formData = new FormData();
+            formData.append('customerId', this.customerId);
+            formData.append('isLoggedIn', 'true');
+            formData.append('productId', this.productId);
+            formData.append('shop', '{{shop.permanent_domain}}');
+            formData.append('_action', 'DELETE');
+            try {
+              const res = await fetch(`${this.apiUrl}/api/wishlist`, {
+                method: 'POST',
+                body: formData,
+                credentials: 'include',
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok && data.ok) {
+                await this.fetchWishlist();
+                toastr.success('Removed from Wishlist!');
+              } else {
+                this.isWishlisted = true;
+                toastr.error('Failed to remove');
+              }
+            } catch (err) {
+              this.isWishlisted = true;
+              toastr.error('Error');
+            }
+          } else {
+            const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+            const idx = guest.findIndex((i) => i.productId === this.productId);
+            if (idx > -1) {
+              guest.splice(idx, 1);
+              localStorage.setItem('guestWishlist', JSON.stringify(guest));
+              this.wishlist = guest.map((i) => String(i.productId));
+              toastr.success('Removed from Wishlist!');
+            } else {
+              this.isWishlisted = true;
+              toastr.error('Item not found');
+            }
+          }
+        },
+      }));
+    });
+  </script>
+
+  <style>
+    .catalog-heart { z-index: 10; pointer-events: auto; }
+    .icon-heart { width: 24px; height: 24px; fill: none; stroke: {{ block.settings.heart_color }}; stroke-width: 2; cursor: pointer; transition: fill 0.3s, stroke 0.3s; }
+    .icon-heart.filled { fill: {{ block.settings.heart_fill_color }}; stroke: {{ block.settings.heart_fill_color }}; }
+    #toast-container > .toast {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      color: #333;
+      opacity: 1 !important;
+      filter: none !important;
+    }
+    #toast-container > .toast-success {
+      border-left: 4px solid #5e8e3e;
+    }
+    #toast-container > .toast-error {
+      border-left: 4px solid #d72c0d;
+    }
+    #toast-container > .toast-warning {
+      border-left: 4px solid #e6a700;
+    }
+  </style>
+</div>
+
 
 {% schema %}
 {
-  "name": "Catalog Heart Icon",
-  "target": "section",
+  "name": "Wishlist Heart Icon",
+  "target": "body",
   "settings": [
-    { "type": "product", "id": "product", "label": "product", "autofill": true }
+    { "type": "text", "id": "api_url", "label": "Wishlist API URL", "default": "https://wishhub.onrender.com" },
+    { "type": "checkbox", "id": "show_on_collection", "label": "Show on Collection pages", "default": true },
+    { "type": "checkbox", "id": "show_on_product_card", "label": "Show on Product cards", "default": true },
+    { "type": "checkbox", "id": "show_on_product_page", "label": "Show on Product page", "default": false },
+    { "type": "color", "id": "heart_color", "label": "Heart Icon Color", "default": "#5e8e3e" },
+    { "type": "color", "id": "heart_fill_color", "label": "Filled Heart Color", "default": "#5e8e3e" },
+    {
+      "type": "select",
+      "id": "position",
+      "label": "Heart Position on Product Card",
+      "options": [
+        { "value": "top-left", "label": "Top Left" },
+        { "value": "top-right", "label": "Top Right" },
+        { "value": "bottom-left", "label": "Bottom Left" },
+        { "value": "bottom-right", "label": "Bottom Right" }
+      ],
+      "default": "top-right"
+    }
   ]
 }
 {% endschema %}

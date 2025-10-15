@@ -1,219 +1,338 @@
 <section
   class="wishlist-page"
-  x-data="wishlist"
-  x-init="init()"
+  x-data="wishlistPage()"
+  x-init="initialize()"
   data-customer-id="{{ customer.id }}"
 >
-  
   <div class="title-button">
     <h1 style="font-size: 2rem; margin-bottom: 1rem;">Your Wishlist</h1>
     <div>
-     <button class="remove" @click="removeAllProducts()">Remove All</button>
+      <button class="remove" @click="removeAll()">Remove All</button>
     </div>
   </div>
 
-  <!-- Empty state -->
-  <template x-if="items.length === 0 && !isLoading">
+  <!-- empty state -->
+  <template x-if="products.length === 0 && !loading">
     <div style="padding: 1.5rem; text-align: center; color: #666;">
       <p>Your wishlist is empty.</p>
-      <a href="/collections/all" style="color: #0066c0; text-decoration: underline;">
-        Browse products →
-      </a>
+      <a href="/collections/all" style="color: #0066c0; text-decoration: underline;">Browse products →</a>
     </div>
   </template>
 
   <!-- loading state -->
-  <template x-if="isLoading">
+  <template x-if="loading">
     <div style="padding: 1.5rem; text-align: center; color: #666;">
       <p>Loading...</p>
     </div>
   </template>
 
-  <!-- Loop over wishlist items -->
-  <div class="wishlist-container" x-show="items.length > 0">
-    <template x-for="item in items">
-                    <div class="wishlist-card">
-                        <button @click="remove(item)" class="close-btn" aria-label="Remove"> X </button>
-                        <!-- Product image -->
-                        <img 
-                            :src="item.imageUrl" 
-                            :alt="item.productTitle" 
-                            class="card-image"
-                        />
-
-                        <div class="card-content">
-                            <!-- Product title -->
-                            <h2 class="card-title" x-text="item.productTitle"></h2>
-                            
-                            <!-- Price & quantity -->
-                            <div class="card-details">
-                                <div class="price">Price: $<span x-text="item.price.toFixed(2)"></span></div>
-                                <div class="qty">Qty: <span x-text="item.quantity"></span></div>
-                            </div>
-                            
-                            <!-- Action buttons -->
-                            <div class="card-actions">
-                                <button 
-                                    @click="addToCart(item)"
-                                    class="add-to-cart"
-                                >
-                                    Add to cart
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-    </template>           
+  <!-- wishlist products -->
+  <div class="wishlist-container" x-show="products.length > 0">
+    <template x-for="product in products" :key="product.productId || product.id">
+      <div class="wishlist-card">
+        <button @click="remove(product)" class="close-btn" aria-label="Remove">X</button>
+        <img :src="product.imageUrl" :alt="product.productTitle" class="card-image" />
+        <div class="card-content">
+          <h2 class="card-title" x-text="product.productTitle"></h2>
+          <div class="card-details">
+            <div class="price">Price: $<span x-text="product.price.toFixed(2)"></span></div>
+            <div class="qty">Qty: <span x-text="product.quantity"></span></div>
+          </div>
+          <div class="card-actions">
+            <button @click="addToCart(product)" class="add-to-cart">Add to cart</button>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </section>
 
-<!-- Toastr CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-<!-- jQuery (required for Toastr) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Toastr JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+<!-- [Rest of your HTML remains unchanged] -->
 <script>
-// Initialize Toastr with custom settings
-      toastr.options = {
-        "closeButton": true,
-        "debug": false,
-        "newestOnTop": true,
-        "progressBar": true,
-        "positionClass": "toast-top-right",
-        "preventDuplicates": false,
-        "onclick": null,
-        "showDuration": "300",
-        "hideDuration": "1000",
-        "timeOut": "3000",
-        "extendedTimeOut": "1000",
-        "showEasing": "swing",
-        "hideEasing": "linear",
-        "showMethod": "fadeIn",
-        "hideMethod": "fadeOut"
-      };
-      
-  document.addEventListener('alpine:init', () => {
-    Alpine.data('wishlist', () => ({
-      apiUrl : "https://wishhub.onrender.com",
-      customerId : null,
-      items: [],
-      Ids: [],
-      isLoading: false,
+  toastr.options = {
+    closeButton: true,
+    newestOnTop: true,
+    progressBar: true,
+    positionClass: "toast-top-right",
+    showDuration: "300",
+    hideDuration: "1000",
+    timeOut: "3000",
+    extendedTimeOut: "1000",
+    showEasing: "swing",
+    hideEasing: "linear",
+    showMethod: "fadeIn",
+    hideMethod: "fadeOut",
+  };
 
-      async init() {
-       this.customerId = this.$el.dataset.customerId;
-       await this.fetchWishlist();
+  function wishlistPage() {
+    return {
+      products: [],
+      loading: false,
+      customerId: null,
+      apiUrl: "https://wishhub.onrender.com",
+
+      async initialize() {
+        this.customerId = this.$el.dataset.customerId || null;
+        if (this.customerId) {
+          await this.loadFromApi();
+        } else {
+          this.loadFromLocalStorage();
+        }
+        await this.loadCart();
       },
 
-      async fetchWishlist() {
-         try{
-          this.isLoading = true;
-          const url = `${this.apiUrl}/api/wishlist?customerId=${encodeURIComponent(this.customerId)}`;
-          const res = await fetch(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
+      async loadFromApi() {
+        this.loading = true;
+        try {
+          const response = await fetch(`${this.apiUrl}/api/wishlist?customerId=${encodeURIComponent(this.customerId)}`, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'include',
           });
-          
-          // Check content type before parsing
-          const contentType = res.headers.get('content-type');
-          if (!contentType || !contentType.includes('application/json')) {
-            const text = await res.text();
-            throw new Error(`Invalid response: ${text.slice(0, 100)}`);
-          }
-          
-          if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || `HTTP error! Status: ${res.status}`);
-          }
-          
-          const data = await res.json();
-          let allIds = data.wishlists.map(item => item.id);
-          this.Ids = allIds;
-          let testData = data.wishlists.map(item => ({
-            ...item,
-            price: parseFloat(item.price),
-            imageUrl: item.productImage || 'https://picsum.photos/200/300'
+          if (!response.ok) throw new Error('Failed to load wishlist');
+          const data = await response.json();
+          this.products = data.wishlists.map(item => ({
+            id: item.id,
+            productId: item.productId,
+            variantId: item.variantId || item.productId,
+            productTitle: item.productTitle,
+            price: parseFloat(item.price) || 0,
+            quantity: item.quantity || 1,
+            imageUrl: item.productImage || 'https://picsum.photos/200/300',
+            lineItemKey: null,
+            denominations: item.denominations || '$10', // Add denominations if available
           }));
-          this.items = testData;
-          this.isLoading = false;
-        }catch(error){
-          this.isLoading = false;
-          console.error("Failed to load wishlist:", error);
+        } catch (err) {
+          console.error("API fetch error:", err);
+          this.products = [];
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      loadFromLocalStorage() {
+        this.loading = true;
+        try {
+          const raw = localStorage.getItem('guestWishlist') || "[]";
+          const list = JSON.parse(raw);
+          this.products = list.map(item => ({
+            id: null,
+            productId: item.productId || item.id || "",
+            variantId: item.variantId || item.productId,
+            productTitle: item.productTitle || item.title || "Unknown product",
+            price: parseFloat(item.price) || 0,
+            quantity: item.quantity || 1,
+            imageUrl: item.productImage || item.image || "https://picsum.photos/200/300",
+            lineItemKey: null,
+            denominations: item.denominations || '$10', // Add denominations
+          }));
+        } catch (err) {
+          console.error("LocalStorage parse error:", err);
+          this.products = [];
+        } finally {
+          this.loading = false;
         }
       },
 
       async remove(product) {
-        if (!product.id) {
-          console.warn("No id on product, cannot delete");
-          return;
+        if (this.customerId && product.id) {
+          try {
+            const res = await fetch(`${this.apiUrl}/api/wishlist`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ action: "DELETE", id: product.id, customerId: this.customerId }),
+            });
+            if (!res.ok) throw new Error("Delete failed");
+            await this.loadFromApi();
+            toastr.success("Item removed from wishlist");
+          } catch (e) {
+            console.error("API remove error:", e);
+          }
+        } else {
+          try {
+            let guestWishlist = JSON.parse(localStorage.getItem("guestWishlist") || "[]");
+            guestWishlist = guestWishlist.filter(i => i.productId !== product.productId);
+            localStorage.setItem("guestWishlist", JSON.stringify(guestWishlist));
+            this.loadFromLocalStorage();
+            toastr.success("Item removed from wishlist");
+          } catch (e) {
+            console.error("LocalStorage remove error:", e);
+          }
         }
+      },
+
+      async removeAll() {
+        if (this.customerId) {
+          try {
+            const res = await fetch(`${this.apiUrl}/api/wishlist`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ action: "DELETE", ids: this.products.map(p => p.id), customerId: this.customerId }),
+            });
+            if (!res.ok) throw new Error("Bulk delete failed");
+            await this.loadFromApi();
+            toastr.success("All items removed");
+          } catch (e) {
+            console.error("API bulk delete error:", e);
+          }
+        } else {
+          try {
+            localStorage.removeItem("guestWishlist");
+            this.loadFromLocalStorage();
+            toastr.success("All items removed");
+          } catch (e) {
+            console.error("LocalStorage clear error:", e);
+          }
+        }
+      },
+
+      async addToCart(product) {
         try {
-          const res = await fetch(`${this.apiUrl}/api/wishlist`, {
-            method: "POST",
-            credentials: "include",
+          const formData = new FormData();
+          formData.append('id', product.productId); // e.g., 46751278432484
+          formData.append('quantity', product.quantity);
+          formData.append('form_type', 'product');
+          formData.append('utf8', '✓');
+          formData.append('product-id', product.productId); // e.g., 8737628225764
+          formData.append('section-id', 'template--19767170040036__main'); // Static or dynamic section ID
+          formData.append('sections', 'cart-drawer,cart-icon-bubble');
+          formData.append('selling_plan', ''); // Empty unless a plan is selected
+          formData.append('Denominations', product.price || '$10'); // e.g., $10
+
+          console.log('Sending payload:', Object.fromEntries(formData)); // Debug payload
+
+          const response = await fetch('/cart/add', {
+            method: 'POST',
+            body: formData,
             headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              action: "DELETE",
-              id: product.id,
-              customerId: this.customerId || undefined
-            }),
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
           });
 
-          if (!res.ok) {
-            throw new Error(`Delete failed: ${res.status}`);
+          const data = await response.json();
+
+          if (response.ok && data.items) {
+            toastr.success('Added to cart!');
+
+            // Fetch updated cart sections
+            const sectionsResponse = await fetch(`/?sections=cart-drawer,cart-icon-bubble`, {
+              headers: {
+                'Accept': 'application/json'
+              }
+            });
+            const sectionsData = await sectionsResponse.json();
+            if (!sectionsResponse.ok) {
+              console.error('Failed to fetch cart sections:', sectionsData);
+              return;
+            }
+            const parsedState = {
+              sections: sectionsData,
+              id: product.productId
+            };
+            const drawer = document.querySelector('cart-drawer');
+            if (drawer) {
+              drawer.renderContents(parsedState); // Render updated cart drawer
+            }
+          } else {
+            console.error('Cart add response:', data);
+            toastr.error(data.description || 'Failed to add to cart');
           }
-          await this.fetchWishlist();
-          // Toastr success notification
-                      toastr.success('Item removed successfully!', 'Success', {
-                        timeOut: 2000,
-                        positionClass: "toast-top-right"
-                      });
         } catch (err) {
-          console.error("Failed to remove wishlist item:", err);
+          console.error('Error adding to cart:', err);
+          toastr.error(`Error: ${err.message || 'Failed to add to cart'}`);
         }
       },
 
-      async removeAllProducts() {
-        if (!this.Ids || this.Ids.length === 0) {
-          console.warn("No IDs to remove");
-          return;
-        }
+      async removeFromCart(lineItemKey, quantity = 0) {
         try {
-          const res = await fetch(`${this.apiUrl}/api/wishlist`, {
-            method: "POST",
-            credentials: "include",
+          if (!lineItemKey) {
+            toastr.error('Item not found in cart');
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append('line', lineItemKey);
+          if (quantity > 0) {
+            formData.append('quantity', quantity);
+          } else {
+            formData.append('quantity', 0); // Remove item
+          }
+
+          const response = await fetch('/cart/change', {
+            method: 'POST',
+            body: formData,
             headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              action: "DELETE",
-              ids: this.Ids,
-              customerId: this.customerId || undefined
-            }),
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
           });
 
-          if (!res.ok) {
-            throw new Error(`Delete failed: ${res.status}`);
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error response:', errorData);
+            throw new Error(errorData.description || 'Failed to remove from cart');
           }
-          await this.fetchWishlist();
-          // Toastr success notification
-                      toastr.success('All items removed successfully!', 'Success', {
-                        timeOut: 2000,
-                        positionClass: "toast-top-right"
-                      });
-        } catch (error) {
-          console.error("Failed to remove wishlist items:", error);
+
+          const data = await response.json();
+
+          this.triggerCartUpdate(data);
+
+          toastr.success('Item removed from cart!');
+        } catch (err) {
+          console.error('Error removing from cart:', err);
+          toastr.error(`Error: ${err.message || 'Failed to remove from cart'}`);
         }
       },
 
-      addToCart(product){
+      async loadCart() {
+        try {
+          const response = await fetch('/cart.js', {
+            headers: { 'Accept': 'application/json' }
+          });
+          if (!response.ok) throw new Error('Failed to load cart');
+          const cart = await response.json();
+          this.products = this.products.map(product => {
+            const cartItem = cart.items.find(item => item.variant_id === (product.variantId || product.productId));
+            return { ...product, lineItemKey: cartItem ? cartItem.key : product.lineItemKey };
+          });
+        } catch (err) {
+          console.error('Cart load error:', err);
+        }
       },
-    }));
-  });
+
+      triggerCartUpdate(cartData) {
+        document.dispatchEvent(new CustomEvent('cart:updated', {
+          detail: { cart: cartData }
+        }));
+
+        fetch('/cart.js', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+          .then(response => response.json())
+          .then(cart => {
+            document.dispatchEvent(new CustomEvent('cart:refresh', {
+              detail: { cart }
+            }));
+            this.products = this.products.map(product => {
+              const cartItem = cart.items.find(item => item.variant_id === (product.variantId || product.productId));
+              return { ...product, lineItemKey: cartItem ? cartItem.key : product.lineItemKey };
+            });
+          })
+          .catch(err => console.error('Cart refresh error:', err));
+      }
+    }
+  }
 </script>
 
 <style>
@@ -348,6 +467,8 @@
           background-color: #fff;
           border: 1px solid #ddd;
           color: #333;
+          opacity: 1 !important;
+          filter: none !important;
         }
 
         #toast-container > .toast-success {
