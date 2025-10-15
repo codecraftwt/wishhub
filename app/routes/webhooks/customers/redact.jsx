@@ -1,35 +1,16 @@
-import crypto from "crypto";
+import { authenticate } from "../../../shopify.server";
 import db from "../../../db.server";
-
-async function verifyShopifyWebhook(request) {
-  const body = await request.arrayBuffer();
-  const bodyBuffer = Buffer.from(body);
-  const hmacHeader = request.headers.get("X-Shopify-Hmac-Sha256");
-  const generatedHmac = crypto
-    .createHmac("sha256", process.env.SHOPIFY_API_SECRET)
-    .update(bodyBuffer)
-    .digest("base64");
-
-  if (generatedHmac !== hmacHeader) {
-    throw new Error("Invalid HMAC signature");
-  }
-
-  return JSON.parse(new TextDecoder().decode(body));
-}
 
 export const action = async ({ request }) => {
   try {
-    const payload = await verifyShopifyWebhook(request);
-    const topic = request.headers.get("X-Shopify-Topic");
-    const shop = request.headers.get("X-Shopify-Shop-Domain");
-
+    const { topic, shop, payload } = await authenticate.webhook(request);
     console.log(`✅ Verified ${topic} webhook for ${shop}`);
 
     // Delete customer data
     const customerId = payload.customer?.id;
     if (customerId) {
       await db.customerData.deleteMany({
-        where: {
+        where: { 
           shop: shop,
           customerId: customerId.toString()
         }
@@ -37,7 +18,7 @@ export const action = async ({ request }) => {
       console.log(`Deleted data for customer ${customerId} from shop ${shop}`);
     }
 
-    return new Response("Webhook processed", { status: 200 });
+    return new Response(null, { status: 200 });
   } catch (error) {
     console.error("❌ Webhook verification failed:", error);
     return new Response("Unauthorized", { status: 401 });
