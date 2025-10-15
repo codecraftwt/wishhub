@@ -1,9 +1,28 @@
-import { authenticate } from "../../../shopify.server";
+import crypto from "crypto";
+
+async function verifyShopifyWebhook(request) {
+  const body = await request.arrayBuffer();
+  const bodyBuffer = Buffer.from(body);
+  const hmacHeader = request.headers.get("X-Shopify-Hmac-Sha256");
+  const generatedHmac = crypto
+    .createHmac("sha256", process.env.SHOPIFY_API_SECRET)
+    .update(bodyBuffer)
+    .digest("base64");
+
+  if (generatedHmac !== hmacHeader) {
+    throw new Error("Invalid HMAC signature");
+  }
+
+  return JSON.parse(new TextDecoder().decode(body));
+}
 
 export const action = async ({ request }) => {
   try {
-    const { shop, topic, payload } = await authenticate.webhook(request);
-    console.log(`✅ Verified ${topic} webhook for ${shop}`, payload);
+    const payload = await verifyShopifyWebhook(request);
+    const topic = request.headers.get("X-Shopify-Topic");
+    const shop = request.headers.get("X-Shopify-Shop-Domain");
+
+    console.log(`✅ Verified ${topic} webhook for ${shop}`);
 
     // Save/update shop info in DB here if needed
 
