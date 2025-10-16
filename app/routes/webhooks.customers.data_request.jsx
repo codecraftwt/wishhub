@@ -1,8 +1,17 @@
-import { authenticate } from "../../../shopify.server";
+// app\routes\webhooks\customers\data_request.jsx
+
+import { authenticate } from "~/shopify.server";
+
+export const loader = async () => {
+ 
+  return new Response("Webhook endpoint. Please use POST.", { status: 200 });
+};
 
 export const action = async ({ request }) => {
   try {
-    const { topic, shop, payload } = await authenticate.webhook(request);
+  const rawBody = Buffer.from(await request.arrayBuffer());
+
+    const { topic, shop, payload } = await authenticate.webhook(request,rawBody);
     console.log(`✅ Verified ${topic} webhook for ${shop}`);
 
     // Log the data request for compliance
