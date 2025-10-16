@@ -2,7 +2,6 @@ import "@shopify/shopify-app-remix/adapters/node";
 import { ApiVersion, AppDistribution, shopifyApp, BillingInterval } from "@shopify/shopify-app-remix/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
-import crypto from "crypto"; // Add crypto to validate HMAC manually if needed
 
 export const MONTHLY_PLAN = 'Monthly subscription';
 export const ANNUAL_PLAN = 'Annual subscription';
@@ -98,30 +97,7 @@ const shopify = shopifyApp({
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
-    : {}),
-
-  // Add a custom authenticate.webhook function that verifies the HMAC
-  authenticate: {
-    webhook: async (request, rawBody) => {
-      const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-      console.log(`Received HMAC: ${hmacHeader}`);
-      const secret = process.env.SHOPIFY_API_SECRET;
-      const generatedHmac = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('base64');
-    console.log(`Generated HMAC: ${generatedHmac}`);
-      if (!crypto.timingSafeEqual(Buffer.from(generatedHmac), Buffer.from(hmacHeader))) {
-        throw new Error('HMAC verification failed');
-      }
-
-      const topic = request.headers.get('X-Shopify-Topic');
-      const shop = request.headers.get('X-Shopify-Shop-Domain');
-      const payload = JSON.parse(rawBody.toString('utf8'));
-
-      return { topic, shop, payload };
-    }
-  }
+    : {})
 });
 
 export default shopify;

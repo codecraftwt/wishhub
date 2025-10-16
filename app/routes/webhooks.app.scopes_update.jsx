@@ -7,11 +7,8 @@ export const loader = async () => {
 
 export const action = async ({ request }) => {
   try {
-    // Read the raw body once
-    const rawBody = Buffer.from(await request.arrayBuffer());
-
-    // Authenticate the webhook with the raw body
-    const { payload, session, topic, shop } = await authenticate.webhook(request, rawBody);
+    // Authenticate the webhook
+    const { payload, session, topic, shop } = await authenticate.webhook(request);
 
     console.log(`Received ${topic} webhook for ${shop}`);
     const current = payload.current;

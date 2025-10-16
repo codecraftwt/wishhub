@@ -9,9 +9,7 @@ export const loader = async () => {
 
 export const action = async ({ request }) => {
   try {
-    const rawBody = Buffer.from(await request.arrayBuffer());
-
-    const { shop, topic, payload } = await authenticate.webhook(request,rawBody);
+    const { shop, topic, payload } = await authenticate.webhook(request);
     console.log(`✅ Verified ${topic} webhook for ${shop}`, payload);
 
     // Save/update shop info in DB here if needed

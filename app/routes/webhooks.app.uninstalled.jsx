@@ -11,15 +11,12 @@ export const loader = async () => {
 
 export const action = async ({ request }) => {
   try {
-
-  const rawBody = Buffer.from(await request.arrayBuffer());
-
-    const { topic, shop } = await authenticate.webhook(request,rawBody);
+    const { topic, shop } = await authenticate.webhook(request);
     console.log(`✅ Verified ${topic} webhook for ${shop}`);
 
     // Delete session data
     await db.session.deleteMany({ where: { shop } });
-    
+
     return new Response(null, { status: 200 });
   } catch (error) {
     console.error("❌ Webhook verification failed:", error);

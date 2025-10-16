@@ -10,16 +10,14 @@ export const loader = async () => {
 
 export const action = async ({ request }) => {
   try {
-  const rawBody = Buffer.from(await request.arrayBuffer());
-
-    const { topic, shop, payload } = await authenticate.webhook(request,rawBody);
+    const { topic, shop, payload } = await authenticate.webhook(request);
     console.log(`✅ Verified ${topic} webhook for ${shop}`);
 
     // Delete customer data
     const customerId = payload.customer?.id;
     if (customerId) {
       await db.customerData.deleteMany({
-        where: { 
+        where: {
           shop: shop,
           customerId: customerId.toString()
         }

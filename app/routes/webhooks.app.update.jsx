@@ -11,9 +11,7 @@ export const loader = async () => {
 
 export const action = async ({ request }) => {
   try {
-  const rawBody = Buffer.from(await request.arrayBuffer());
-
-    const { payload, session, topic, shop } = await authenticate.webhook(request,rawBody);
+    const { payload, session, topic, shop } = await authenticate.webhook(request);
 
     console.log(`Verified ${topic} webhook for ${shop}`);
 
