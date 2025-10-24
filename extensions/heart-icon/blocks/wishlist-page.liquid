@@ -104,7 +104,7 @@
             quantity: item.quantity || 1,
             imageUrl: item.productImage || 'https://picsum.photos/200/300',
             lineItemKey: null,
-            denominations: item.denominations || '$10', // Add denominations if available
+            denominations: item.denominations || '$10',
           }));
         } catch (err) {
           console.error("API fetch error:", err);
@@ -152,6 +152,7 @@
             toastr.success("Item removed from wishlist");
           } catch (e) {
             console.error("API remove error:", e);
+            toastr.error("Failed to remove item from wishlist");
           }
         } else {
           try {
@@ -162,6 +163,7 @@
             toastr.success("Item removed from wishlist");
           } catch (e) {
             console.error("LocalStorage remove error:", e);
+            toastr.error("Failed to remove item from wishlist");
           }
         }
       },
@@ -180,6 +182,7 @@
             toastr.success("All items removed");
           } catch (e) {
             console.error("API bulk delete error:", e);
+            toastr.error("Failed to remove all items");
           }
         } else {
           try {
@@ -188,6 +191,7 @@
             toastr.success("All items removed");
           } catch (e) {
             console.error("LocalStorage clear error:", e);
+            toastr.error("Failed to remove all items");
           }
         }
       },
@@ -195,19 +199,19 @@
       async addToCart(product) {
         try {
           const formData = new FormData();
-          formData.append('id', product.variantId); 
-          formData.append('quantity', product.quantity);
+          formData.append('id', product.variantId || product.productId); // Fallback to productId if variantId is missing
+          formData.append('quantity', product.quantity || 1);
           formData.append('form_type', 'product');
           formData.append('utf8', '✓');
-          formData.append('product-id', product.productId); 
-          formData.append('section-id', 'template--19767170040036__main'); 
+          formData.append('product-id', product.productId);
+          formData.append('section-id', 'template--19767170040036__main');
           formData.append('sections', 'cart-drawer,cart-icon-bubble');
-          formData.append('selling_plan', ''); 
-          formData.append('Denominations', product.price || '$10');
+          formData.append('selling_plan', '');
+          formData.append('Denominations', product.denominations || '$10');
 
-          console.log('Sending payload:', Object.fromEntries(formData)); 
+          console.log('Sending payload:', Object.fromEntries(formData));
 
-          const response = await fetch('/cart/add', {
+          const response = await fetch('/cart/add.js', {
             method: 'POST',
             body: formData,
             headers: {
@@ -218,31 +222,40 @@
 
           const data = await response.json();
 
-          if (response.ok && data.items) {
-            toastr.success('Added to cart!');
+          if (response.ok) {
+            toastr.success(`${product.productTitle} added to cart!`);
+            // Update cart state and UI
+            await this.loadCart(); // Update lineItemKey for products
+            this.triggerCartUpdate(data); // Trigger cart refresh
 
-            // Fetch updated cart sections
+            // Fetch and render updated cart sections
             const sectionsResponse = await fetch(`/?sections=cart-drawer,cart-icon-bubble`, {
               headers: {
                 'Accept': 'application/json'
               }
             });
-            const sectionsData = await sectionsResponse.json();
             if (!sectionsResponse.ok) {
-              console.error('Failed to fetch cart sections:', sectionsData);
-              return;
+              throw new Error('Failed to fetch cart sections');
             }
+            const sectionsData = await sectionsResponse.json();
             const parsedState = {
               sections: sectionsData,
-              id: product.productId
+              id: product.productId,
+              item: data 
             };
             const drawer = document.querySelector('cart-drawer');
-            if (drawer) {
+            if (drawer && typeof drawer.renderContents === 'function') {
               drawer.renderContents(parsedState);
+            } else {
+              console.warn('Cart drawer not found or renderContents not available');
+             
+              document.dispatchEvent(new CustomEvent('cart:refresh', {
+                detail: { cart: data }
+              }));
             }
           } else {
             console.error('Cart add response:', data);
-            toastr.error(data.description || 'Failed to add to cart');
+            toastr.error(data.message || data.description || 'Failed to add to cart');
           }
         } catch (err) {
           console.error('Error adding to cart:', err);
@@ -259,13 +272,9 @@
 
           const formData = new FormData();
           formData.append('line', lineItemKey);
-          if (quantity > 0) {
-            formData.append('quantity', quantity);
-          } else {
-            formData.append('quantity', 0); // Remove item
-          }
+          formData.append('quantity', quantity);
 
-          const response = await fetch('/cart/change', {
+          const response = await fetch('/cart/change.js', {
             method: 'POST',
             body: formData,
             headers: {
@@ -277,7 +286,7 @@
           if (!response.ok) {
             const errorData = await response.json();
             console.error('Error response:', errorData);
-            throw new Error(errorData.description || 'Failed to remove from cart');
+            throw new Error(errorData.message || errorData.description || 'Failed to remove from cart');
           }
 
           const data = await response.json();
@@ -300,7 +309,7 @@
           const cart = await response.json();
           this.products = this.products.map(product => {
             const cartItem = cart.items.find(item => item.variant_id === (product.variantId || product.productId));
-            return { ...product, lineItemKey: cartItem ? cartItem.key : product.lineItemKey };
+            return { ...product, lineItemKey: cartItem ? cartItem.key : null };
           });
         } catch (err) {
           console.error('Cart load error:', err);
@@ -326,7 +335,7 @@
             }));
             this.products = this.products.map(product => {
               const cartItem = cart.items.find(item => item.variant_id === (product.variantId || product.productId));
-              return { ...product, lineItemKey: cartItem ? cartItem.key : product.lineItemKey };
+              return { ...product, lineItemKey: cartItem ? cartItem.key : null };
             });
           })
           .catch(err => console.error('Cart refresh error:', err));
