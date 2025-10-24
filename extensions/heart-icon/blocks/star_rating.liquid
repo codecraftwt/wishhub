@@ -1,61 +1,174 @@
-<div class="wishlist-button" x-data="starWishlist" data-customer-id="{{ customer.id }}" data-product-id="{{ product.id }}" data-product-title="{{ product.title | escape }}" data-product-price="{{ product.price }}" data-product-image="{{ product.featured_image.src | img_url: 'large' }}">
-
-  <button type="button" @click="toggleWishlist" :style="`display: inline-flex; justify-content: center; align-items: center; width: 100%; height: 50px; background-color: ${isWishlisted ? '#d72c0d' : '#000'}; color: #fff; font-size: 1.4rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;`" x-text="isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24" style="margin-right: 0.5rem;">
-      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
-              2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09
-              C13.09 3.81 14.76 3 16.5 3
-              19.58 3 22 5.42 22 8.5
-              c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-    </svg>
-  </button>
-</div>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 
 <script>
-  const productData = {
-    id: "{{ product.id }}",
-    title: "{{ product.title | escape }}",
-    price: "{{ product.price }}",
-    image: "{{ product.featured_image.src | img_url: 'large' }}"
-  };
+  // Check if app is enabled (this would come from your app settings)
+  const isAppEnabled = true; // Set this based on your app configuration
+
+  if (isAppEnabled) {
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('Wishlist App: Initializing...');
+      
+      const injectWishlistButton = () => {
+        // Try multiple selectors to find the product info container
+        const productInfoSelectors = [
+          '.product__info-wrapper',
+          '.product__info-container', 
+          '[data-section-type="product"]',
+          '.product-single__meta',
+          '.product-details'
+        ];
+        
+        let productPage = null;
+        for (const selector of productInfoSelectors) {
+          productPage = document.querySelector(selector);
+          if (productPage) break;
+        }
+        
+        if (!productPage) {
+          console.log('Wishlist App: Product info container not found');
+          return;
+        }
+
+        // Check if button already exists
+        if (productPage.querySelector('.wishlist-button')) {
+          return;
+        }
+
+        const customerId = "{{ customer.id }}" || null;
+        const productId = "{{ product.id }}";
+        const productTitle = "{{ product.title | escape }}";
+        const productPrice = "{{ product.price }}";
+        const productImage = "{{ product.featured_image.src | img_url: 'large' }}";
+
+        console.log('Wishlist App: Injecting button for product:', productId);
+
+        const buttonDiv = document.createElement('div');
+        buttonDiv.classList.add('wishlist-button');
+        buttonDiv.dataset.customerId = customerId || '';
+        buttonDiv.dataset.productId = productId;
+        buttonDiv.dataset.productTitle = productTitle;
+        buttonDiv.dataset.productPrice = productPrice;
+        buttonDiv.dataset.productImage = productImage;
+
+        buttonDiv.innerHTML = `
+          <div x-data="starWishlist" x-init="init()" x-cloak>
+            <button type="button" @click="toggleWishlist" :style="'display: inline-flex; justify-content: center; align-items: center; width: 100%; height: 50px; background-color: ' + (isWishlisted ? '#d72c0d' : '#000') + '; color: #fff; font-size: 1.4rem; font-weight: 500; border: none; border-radius: 4px; cursor: pointer;'" x-text="isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24" style="margin-right: 0.5rem;">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </button>
+          </div>
+        `;
+
+        // Try multiple insertion points
+        const insertionPoints = [
+          () => {
+            const buyButtons = productPage.querySelector('.product-form__buttons, [data-product-form], .shopify-payment-button');
+            if (buyButtons) {
+              return buyButtons.parentNode.insertBefore(buttonDiv, buyButtons.nextSibling);
+            }
+          },
+          () => {
+            const addToCartBtn = productPage.querySelector('button[type="submit"], .product-form__submit, [name="add"]');
+            if (addToCartBtn) {
+              return addToCartBtn.parentNode.insertBefore(buttonDiv, addToCartBtn.nextSibling);
+            }
+          },
+          () => {
+            const priceElement = productPage.querySelector('.price, .product__price');
+            if (priceElement) {
+              return priceElement.parentNode.insertBefore(buttonDiv, priceElement.nextSibling);
+            }
+          },
+          () => {
+            // Last resort: append to product info container
+            return productPage.appendChild(buttonDiv);
+          }
+        ];
+
+        for (const insert of insertionPoints) {
+          if (insert()) break;
+        }
+
+        // Initialize Alpine.js on the new element
+        if (window.Alpine) {
+          Alpine.initTree(buttonDiv);
+        }
+      };
+
+      // Initial injection
+      setTimeout(injectWishlistButton, 100);
+      
+      // Observe for dynamic content changes
+      const observer = new MutationObserver((mutations) => {
+        let shouldInject = false;
+        for (const mutation of mutations) {
+          if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+            for (const node of mutation.addedNodes) {
+              if (node.nodeType === 1 && (
+                node.classList?.contains('product__info-wrapper') ||
+                node.querySelector?.('.product-form__buttons') ||
+                node.querySelector?.('button[type="submit"]')
+              )) {
+                shouldInject = true;
+                break;
+              }
+            }
+          }
+          if (shouldInject) break;
+        }
+        if (shouldInject) {
+          setTimeout(injectWishlistButton, 200);
+        }
+      });
+
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+      });
+    });
+  }
 </script>
 
- <script>
+<script>
   document.addEventListener('alpine:init', () => {
     Alpine.data('starWishlist', () => ({
       apiUrl: "https://wishhub.onrender.com",
       isWishlisted: false,
 
       async init() {
-        const productId = this.$el.dataset.productId || productData.id;
-        const customerId = this.$el.dataset.customerId || "{{ customer.id }}";
+        const productId = this.$el.closest('.wishlist-button').dataset.productId;
+        const customerId = this.$el.closest('.wishlist-button').dataset.customerId;
+
+        console.log('Wishlist App: Initializing for product:', productId);
 
         if (customerId) {
           try {
-            const res = await fetch(`${this.apiUrl}/api/wishlist?customerId=${customerId}`, {
-              credentials: 'include',
+            const res = await fetch(`${this.apiUrl}/api/wishlist?customerId=${customerId}`, { 
+              credentials: 'include' 
             });
             if (res.ok) {
               const data = await res.json();
               this.isWishlisted = data.wishlists.some((i) => String(i.productId) === String(productId));
+              console.log('Wishlist App: Customer wishlist status:', this.isWishlisted);
             }
           } catch (e) {
-            console.error(e);
+            console.error('Wishlist App: Error fetching wishlist:', e);
           }
         } else {
           const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
           this.isWishlisted = guest.some((i) => String(i.productId) === String(productId));
+          console.log('Wishlist App: Guest wishlist status:', this.isWishlisted);
         }
       },
 
       async toggleWishlist() {
         const wasWishlisted = this.isWishlisted; 
         this.isWishlisted = !this.isWishlisted; 
+        console.log('Wishlist App: Toggling wishlist to:', this.isWishlisted);
 
         if (this.isWishlisted) {
           await this.addtoWishlist(wasWishlisted);
@@ -65,9 +178,9 @@
       },
 
       async removeFromWishlist(wasWishlisted) {
-        const productId = this.$el.dataset.productId || productData.id;
-        const productTitle = this.$el.dataset.productTitle || productData.title;
-        const customerId = this.$el.dataset.customerId || "{{ customer.id }}";
+        const productId = this.$el.closest('.wishlist-button').dataset.productId;
+        const productTitle = this.$el.closest('.wishlist-button').dataset.productTitle;
+        const customerId = this.$el.closest('.wishlist-button').dataset.customerId;
 
         if (customerId) {
           const formData = new FormData();
@@ -78,28 +191,21 @@
           formData.append('shop', '{{shop.permanent_domain}}');
           formData.append('_action', 'DELETE');
           try {
-            const res = await fetch(this.apiUrl + "/api/wishlist", {
-              method: 'POST',
-              body: formData,
-              credentials: 'include',
+            const res = await fetch(this.apiUrl + "/api/wishlist", { 
+              method: 'POST', 
+              body: formData, 
+              credentials: 'include' 
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.ok) {
-              toastr.success('Removed from Wishlist!', 'Success', {
-                timeOut: 2000,
-                positionClass: "toast-top-right"
-              });
+              toastr.success('Removed from Wishlist!', 'Success', { timeOut: 2000, positionClass: "toast-top-right" });
             } else {
               this.isWishlisted = wasWishlisted; 
-              toastr.error('Failed to remove from Wishlist', 'Error', {
-                timeOut: 2000
-              });
+              toastr.error('Failed to remove from Wishlist', 'Error', { timeOut: 2000 });
             }
           } catch (err) {
             this.isWishlisted = wasWishlisted; 
-            toastr.error('Error removing from Wishlist', 'Error', {
-              timeOut: 2000
-            });
+            toastr.error('Error removing from Wishlist', 'Error', { timeOut: 2000 });
           }
         } else {
           const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
@@ -107,31 +213,24 @@
           if (idx > -1) {
             guest.splice(idx, 1);
             localStorage.setItem('guestWishlist', JSON.stringify(guest));
-            toastr.success('Removed from Wishlist!', 'Success', {
-              timeOut: 2000,
-              positionClass: "toast-top-right"
-            });
+            toastr.success('Removed from Wishlist!', 'Success', { timeOut: 2000, positionClass: "toast-top-right" });
           } else {
             this.isWishlisted = wasWishlisted; 
-            toastr.error('Item not found in Wishlist', 'Error', {
-              timeOut: 2000
-            });
+            toastr.error('Item not found in Wishlist', 'Error', { timeOut: 2000 });
           }
         }
       },
 
       async addtoWishlist(wasWishlisted) {
-        const productId = this.$el.dataset.productId || productData.id;
-        const productTitle = this.$el.dataset.productTitle || productData.title;
-        const price = this.$el.dataset.productPrice || productData.price;
-        const productImage = this.$el.dataset.productImage || productData.image;
-        const customerId = this.$el.dataset.customerId || "{{ customer.id }}";
+        const productId = this.$el.closest('.wishlist-button').dataset.productId;
+        const productTitle = this.$el.closest('.wishlist-button').dataset.productTitle;
+        const price = this.$el.closest('.wishlist-button').dataset.productPrice;
+        const productImage = this.$el.closest('.wishlist-button').dataset.productImage;
+        const customerId = this.$el.closest('.wishlist-button').dataset.customerId;
 
         if (!productId) {
           this.isWishlisted = wasWishlisted; 
-          toastr.error('Product information not found. Please refresh the page.', 'Error', {
-            timeOut: 2000
-          });
+          toastr.error('Product information not found. Please refresh the page.', 'Error', { timeOut: 2000 });
           return;
         }
 
@@ -147,27 +246,20 @@
           formData.append('productImage', productImage);
           formData.append('_action', 'CREATE');
           try {
-            const res = await fetch(this.apiUrl + "/api/wishlist", {
-              method: 'POST',
-              body: formData,
-              credentials: 'include',
+            const res = await fetch(this.apiUrl + "/api/wishlist", { 
+              method: 'POST', 
+              body: formData, 
+              credentials: 'include' 
             });
             if (res.status === 200) {
-              toastr.success('Item added to Wishlist!', 'Success', {
-                timeOut: 2000,
-                positionClass: "toast-top-right"
-              });
+              toastr.success('Item added to Wishlist!', 'Success', { timeOut: 2000, positionClass: "toast-top-right" });
             } else {
               this.isWishlisted = wasWishlisted; 
-              toastr.error('Failed to add item to Wishlist', 'Error', {
-                timeOut: 2000
-              });
+              toastr.error('Failed to add item to Wishlist', 'Error', { timeOut: 2000 });
             }
           } catch (error) {
             this.isWishlisted = wasWishlisted; 
-            toastr.error('Error adding to Wishlist', 'Error', {
-              timeOut: 2000
-            });
+            toastr.error('Error adding to Wishlist', 'Error', { timeOut: 2000 });
           }
         } else {
           const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
@@ -181,15 +273,10 @@
               shop: '{{shop.permanent_domain}}',
             });
             localStorage.setItem('guestWishlist', JSON.stringify(guest));
-            toastr.success('Item added to Wishlist!', 'Success', {
-              timeOut: 2000,
-              positionClass: "toast-top-right"
-            });
+            toastr.success('Item added to Wishlist!', 'Success', { timeOut: 2000, positionClass: "toast-top-right" });
           } else {
             this.isWishlisted = wasWishlisted;
-            toastr.warning('Item already in Wishlist', 'Warning', {
-              timeOut: 2000
-            });
+            toastr.warning('Item already in Wishlist', 'Warning', { timeOut: 2000 });
           }
         }
       }
@@ -198,42 +285,68 @@
 </script>
 
 <style>
-.polaris-banner {
-  background-color: #e0f3e0;
-  border: 1px solid #50b83c;
-  color: #108043;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-  border-radius: 4px;
-  font-weight: 500;
+.wishlist-button {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
 }
+
+.wishlist-button button {
+  transition: all 0.3s ease;
+}
+
+.wishlist-button button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
 #toast-container > .toast {
-   background-color: #fff;
-   border: 1px solid #ddd;
-   color: #333;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  color: #333;
 }
 
 #toast-container > .toast-success {
-   border-left: 4px solid #5e8e3e;
+  border-left: 4px solid #5e8e3e;
 }
 
 #toast-container > .toast-error {
-   border-left: 4px solid #d72c0d;
+  border-left: 4px solid #d72c0d;
 }
 
 #toast-container > .toast-warning {
-   border-left: 4px solid #e6a700;
+  border-left: 4px solid #e6a700;
+}
+
+/* Hide Alpine.js elements until they're initialized */
+[x-cloak] {
+  display: none !important;
 }
 </style>
 
 {% schema %}
 {
-  "name": "Star Rating",
-  "target": "section",
+  "name": "Wishlist Button",
+  "target": "body",
   "settings": [
-    { "type": "product", "id": "product", "label": "product", "autofill": true },
-    { "type": "color", "id": "colour", "label": "Star Colour", "default": "#ff0000"}
+    {
+      "type": "checkbox",
+      "id": "enable_wishlist_app",
+      "label": "Enable Wishlist Button",
+      "default": false
+    },
+    { 
+      "type": "product", 
+      "id": "product", 
+      "label": "Product", 
+      "autofill": true 
+    },
+    { 
+      "type": "color", 
+      "id": "colour", 
+      "label": "Icon Colour", 
+      "default": "#d72c0d" 
+    }
   ]
 }
 {% endschema %}
-

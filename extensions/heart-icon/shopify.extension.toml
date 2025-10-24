@@ -18,3 +18,8 @@ name   = "Catlog Heart Icon"
 target = "product-card"
 path   = "blocks/heart-icon.liquid"
 
+[[blocks]]
+name   = "Star Rating"
+target = "body"
+path   = "blocks/star_rating.liquid"
+
