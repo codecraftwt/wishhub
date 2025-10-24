@@ -38,13 +38,17 @@ model Settings {
 }
 
 model Wishlist {
-  id            Int       @id @default(autoincrement())
-  customerId    String?
-  productId     String?
-  productTitle  String?
-  shop          String?
-  productImage  String?
-  quantity      Int       @default(1)
-  price         Float?
-  createdAt     DateTime? @default(now())
+  id           Int     @id @default(autoincrement())
+  customerId   String
+  productId    String
+  variantId    String? 
+  shop         String
+  productTitle String
+  variantTitle String? 
+  quantity     Int
+  price        Float
+  productImage String?
+  
+  @@unique([customerId, productId, variantId, shop])
+  @@map("wishlists")
 }

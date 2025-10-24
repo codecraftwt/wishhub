@@ -23,14 +23,11 @@
 
       const apiUrl = '{{ block.settings.api_url }}';
       const customerId = '{{ customer.id }}' || null;
-
-
-      const extractProductInfo = (card) => {
-       
+      
+      const extractProductInfo = async (card) => {
         let productId =
           card.dataset.productId ||
           card.getAttribute('data-product-id') ||
-          card.querySelector('form[action*="/cart/add"] input[name="id"]')?.value ||
           card.querySelector('input[type="hidden"][name*="product" i],input[type="hidden"][id*="product" i]')?.value ||
           (() => {
             let el = card.querySelector('[id^="CardLink-"],[id^="StandardCardNoMediaLink-"]');
@@ -43,7 +40,7 @@
           (() => {
             let a = card.querySelector('a[href*="/products/"]');
             if (a) {
-              return a.closest('div')?.querySelector('input[name="id"]')?.value || null;
+              return a.closest('div')?.querySelector('input[name="product-id"]')?.value || null;
             }
             return null;
           })() ||
@@ -52,6 +49,34 @@
             return m ? m[0] : null;
           })() ||
           null;
+       
+        let variantId =
+          card.querySelector('form[action*="/cart/add"] input[name="id"]')?.value ||
+          card.querySelector('input[name="id"][type="hidden"]')?.value ||
+          card.querySelector('select[name="id"] option[selected]')?.value ||
+          card.dataset.variantId ||
+          card.getAttribute('data-variant-id') ||
+          card.querySelector('button[name="id"]')?.value ||
+          card.querySelector('button[data-variant-id]')?.dataset.variantId ||
+          null;
+
+        if (!variantId) {
+          const productLink = card.querySelector('a.full-unstyled-link, a[href*="/products/"]');
+          if (productLink) {
+            const handle = productLink.getAttribute('href').split('/products/')[1]?.split('?')[0];
+            if (handle) {
+              try {
+                const res = await fetch(`/products/${handle}.js`);
+                if (res.ok) {
+                  const data = await res.json();
+                  variantId = data?.variants?.[0]?.id || null;
+                }
+              } catch (err) {
+                console.warn('Variant fetch failed:', err);
+              }
+            }
+          }
+        }
 
         let productTitle =
           card.dataset.productTitle ||
@@ -77,19 +102,20 @@
           price = (parseFloat(price) / 100).toFixed(2);
         }
 
-        return { productId, productTitle, productImg, price };
+        return { productId, variantId, productTitle, productImg, price };
       };
 
-      const injectHeart = (card) => {
+      const injectHeart = async (card) => {
         if (card.querySelector('.catalog-heart')) return;
 
-        const { productId, productTitle, productImg, price } = extractProductInfo(card);
-        if (!productId) return; // Don't inject if ID missing
+        const { productId, variantId, productTitle, productImg, price } = await extractProductInfo(card);
+        if (!productId) return;
 
         const heartDiv = document.createElement('div');
         heartDiv.classList.add('catalog-heart');
         heartDiv.dataset.customerId = customerId || '';
         heartDiv.dataset.productId = productId;
+        heartDiv.dataset.variantId = variantId || '';
         heartDiv.dataset.productTitle = productTitle;
         heartDiv.dataset.price = price;
         heartDiv.dataset.productImg = productImg;
@@ -163,6 +189,7 @@
         apiUrl: '{{ block.settings.api_url }}',
         customerId: null,
         productId: null,
+        variantId: null,
         productTitle: null,
         price: null,
         productImage: null,
@@ -172,12 +199,10 @@
 
         async init() {
           const el = this.$el.closest('.catalog-heart');
-          if (!el) {
-            console.error('Wishlist init error: .catalog-heart element not found');
-            return;
-          }
+          if (!el) return;
           this.customerId = el.dataset.customerId || null;
           this.productId = el.dataset.productId || null;
+          this.variantId = el.dataset.variantId || null;
           this.productTitle = el.dataset.productTitle || '';
           this.price = el.dataset.price || '';
           this.productImage = el.dataset.productImg || '';
@@ -217,6 +242,7 @@
             formData.append('customerId', this.customerId);
             formData.append('isLoggedIn', 'true');
             formData.append('productId', this.productId);
+            formData.append('variantId', this.variantId);
             formData.append('productTitle', this.productTitle);
             formData.append('quantity', '1');
             formData.append('price', this.price);
@@ -237,7 +263,7 @@
                 this.isWishlisted = false;
                 toastr.error('Failed to add');
               }
-            } catch (err) {
+            } catch {
               this.isWishlisted = false;
               toastr.error('Error');
             }
@@ -246,6 +272,7 @@
             if (!guest.find((i) => i.productId === this.productId)) {
               guest.push({
                 productId: this.productId,
+                variantId: this.variantId,
                 productTitle: this.productTitle,
                 price: this.price,
                 productImage: this.productImage,
@@ -267,6 +294,7 @@
             formData.append('customerId', this.customerId);
             formData.append('isLoggedIn', 'true');
             formData.append('productId', this.productId);
+            formData.append('variantId', this.variantId);
             formData.append('shop', '{{shop.permanent_domain}}');
             formData.append('_action', 'DELETE');
             try {
@@ -283,13 +311,13 @@
                 this.isWishlisted = true;
                 toastr.error('Failed to remove');
               }
-            } catch (err) {
+            } catch {
               this.isWishlisted = true;
               toastr.error('Error');
             }
           } else {
             const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
-            const idx = guest.findIndex((i) => i.productId === this.productId);
+            const idx = guest.findIndex((i) => i.productId === this.productId && i.variantId === this.variantId);
             if (idx > -1) {
               guest.splice(idx, 1);
               localStorage.setItem('guestWishlist', JSON.stringify(guest));

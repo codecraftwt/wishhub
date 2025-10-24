@@ -31,7 +31,7 @@
     <template x-for="product in products" :key="product.productId || product.id">
       <div class="wishlist-card">
         <button @click="remove(product)" class="close-btn" aria-label="Remove">X</button>
-        <img :src="product.imageUrl" :alt="product.productTitle" class="card-image" />
+        <img :src="product.imageUrl" :alt="product.productTitle" class="card-image" width="250" height="250" />
         <div class="card-content">
           <h2 class="card-title" x-text="product.productTitle"></h2>
           <div class="card-details">
@@ -48,8 +48,8 @@
 </section>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<script defer src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
 <!-- [Rest of your HTML remains unchanged] -->
@@ -98,7 +98,7 @@
           this.products = data.wishlists.map(item => ({
             id: item.id,
             productId: item.productId,
-            variantId: item.variantId || item.productId,
+            variantId: item.variantId,
             productTitle: item.productTitle,
             price: parseFloat(item.price) || 0,
             quantity: item.quantity || 1,
@@ -122,7 +122,7 @@
           this.products = list.map(item => ({
             id: null,
             productId: item.productId || item.id || "",
-            variantId: item.variantId || item.productId,
+            variantId: item.variantId ,
             productTitle: item.productTitle || item.title || "Unknown product",
             price: parseFloat(item.price) || 0,
             quantity: item.quantity || 1,
@@ -195,17 +195,17 @@
       async addToCart(product) {
         try {
           const formData = new FormData();
-          formData.append('id', product.productId); // e.g., 46751278432484
+          formData.append('id', product.variantId); 
           formData.append('quantity', product.quantity);
           formData.append('form_type', 'product');
           formData.append('utf8', '✓');
-          formData.append('product-id', product.productId); // e.g., 8737628225764
-          formData.append('section-id', 'template--19767170040036__main'); // Static or dynamic section ID
+          formData.append('product-id', product.productId); 
+          formData.append('section-id', 'template--19767170040036__main'); 
           formData.append('sections', 'cart-drawer,cart-icon-bubble');
-          formData.append('selling_plan', ''); // Empty unless a plan is selected
-          formData.append('Denominations', product.price || '$10'); // e.g., $10
+          formData.append('selling_plan', ''); 
+          formData.append('Denominations', product.price || '$10');
 
-          console.log('Sending payload:', Object.fromEntries(formData)); // Debug payload
+          console.log('Sending payload:', Object.fromEntries(formData)); 
 
           const response = await fetch('/cart/add', {
             method: 'POST',
@@ -238,7 +238,7 @@
             };
             const drawer = document.querySelector('cart-drawer');
             if (drawer) {
-              drawer.renderContents(parsedState); // Render updated cart drawer
+              drawer.renderContents(parsedState);
             }
           } else {
             console.error('Cart add response:', data);

@@ -50,7 +50,9 @@ export async function loader({ request }) {
     console.log("[wishlist] Loader hit", { customerId, origin: request.headers.get("origin") });
 
     if (hasCustomerId(customerId)) {
-      const wishlists = await db.wishlist.findMany({ where: { customerId: String(customerId) } });
+      const wishlists = await db.wishlist.findMany({ 
+        where: { customerId: String(customerId) } 
+      });
       return ok(request, { migrated: false, wishlists });
     }
 
@@ -120,11 +122,13 @@ async function handleUpsert(request, data) {
   const {
     customerId,
     productId,
+    variantId, 
     productTitle,
     shop,
     quantity: qty = "1",
     price,
     productImage,
+    variantTitle,
   } = data;
 
   if (!productId || !shop || !productTitle) {
@@ -139,9 +143,10 @@ async function handleUpsert(request, data) {
   try {
     const wishlist = await db.wishlist.upsert({
       where: {
-        customerId_productId_shop: {
+        customerId_productId_variantId_shop: {
           customerId: String(customerId),
           productId: String(productId),
+          variantId: variantId ? String(variantId) : "default", 
           shop: String(shop),
         },
       },
@@ -150,15 +155,19 @@ async function handleUpsert(request, data) {
         productTitle: cleanedProductTitle,
         productImage,
         price: parsedPrice,
+        variantId: variantId ? String(variantId) : null,
+        variantTitle: variantTitle || null, 
       },
       create: {
         customerId: String(customerId),
         productId: String(productId),
+        variantId: variantId ? String(variantId) : null, 
         shop: String(shop),
         productTitle: cleanedProductTitle,
         quantity: parsedQty,
         price: parsedPrice,
         productImage,
+        variantTitle: variantTitle || null, 
       },
     });
 
@@ -171,6 +180,7 @@ async function handleUpsert(request, data) {
         where: {
           customerId: String(customerId),
           productId: String(productId),
+          variantId: variantId ? String(variantId) : null,
           shop: String(shop),
         },
       });
@@ -180,20 +190,24 @@ async function handleUpsert(request, data) {
             where: { id: existing.id },
             data: {
               quantity: existing.quantity + parsedQty,
-              productTitle,
+              productTitle: cleanedProductTitle,
               productImage,
               price: parsedPrice,
+              variantId: variantId ? String(variantId) : null, 
+              variantTitle: variantTitle || null, 
             },
           })
         : await db.wishlist.create({
             data: {
               customerId: String(customerId),
               productId: String(productId),
+              variantId: variantId ? String(variantId) : null, 
               shop: String(shop),
-              productTitle,
+              productTitle: cleanedProductTitle,
               quantity: parsedQty,
               price: parsedPrice,
               productImage,
+              variantTitle: variantTitle || null, 
             },
           });
 
@@ -228,13 +242,21 @@ async function handleDelete(request, data) {
     return ok(request, { message: "Item deleted successfully" });
   }
 
+  
   if (data.productId && data.shop) {
+    const whereClause = {
+      customerId: String(customerId),
+      productId: String(data.productId),
+      shop: String(data.shop),
+    };
+
+    
+    if (data.variantId) {
+      whereClause.variantId = String(data.variantId);
+    }
+
     const result = await db.wishlist.deleteMany({
-      where: {
-        customerId: String(customerId),
-        productId: String(data.productId),
-        shop: String(data.shop),
-      },
+      where: whereClause,
     });
     return ok(request, { message: `Deleted ${result.count} items`, deletedCount: result.count });
   }
@@ -252,7 +274,9 @@ async function handleMigrate(request, data) {
   const items = localStorageItems
     .map((item) => ({
       productId: String(item.productId ?? item.id ?? "").trim(),
+      variantId: item.variantId ? String(item.variantId) : null,
       productTitle: String(item.productTitle ?? item.title ?? ""),
+      variantTitle: item.variantTitle || null, 
       quantity: Math.max(1, parseInt(item.quantity ?? 1, 10) || 1),
       price: Number.isFinite(parseFloat(item.price)) ? parseFloat(item.price) : 0,
       productImage: item.productImage ?? item.image ?? null,
@@ -267,15 +291,17 @@ async function handleMigrate(request, data) {
   console.log("[wishlist] Migrating localStorage → DB", {
     customerId: String(customerId),
     count: items.length,
+    itemsWithVariants: items.filter(item => item.variantId).length,
   });
 
   try {
     const ops = items.map((it) =>
       db.wishlist.upsert({
         where: {
-          customerId_productId_shop: {
+          customerId_productId_variantId_shop: {
             customerId: String(customerId),
             productId: it.productId,
+            variantId: it.variantId || "default", 
             shop: it.shop,
           },
         },
@@ -284,15 +310,19 @@ async function handleMigrate(request, data) {
           productTitle: it.productTitle,
           price: it.price,
           productImage: it.productImage,
+          variantId: it.variantId || null, 
+          variantTitle: it.variantTitle || null, 
         },
         create: {
           customerId: String(customerId),
           productId: it.productId,
+          variantId: it.variantId || null, 
           productTitle: it.productTitle,
           quantity: it.quantity,
           price: it.price,
           productImage: it.productImage,
           shop: it.shop,
+          variantTitle: it.variantTitle || null, 
         },
       })
     );
@@ -307,6 +337,7 @@ async function handleMigrate(request, data) {
           where: {
             customerId: String(customerId),
             productId: it.productId,
+            variantId: it.variantId || null,
             shop: it.shop,
           },
         });
@@ -319,6 +350,8 @@ async function handleMigrate(request, data) {
               productTitle: it.productTitle || existing.productTitle,
               price: it.price ?? existing.price,
               productImage: it.productImage ?? existing.productImage,
+              variantId: it.variantId || existing.variantId, 
+              variantTitle: it.variantTitle || existing.variantTitle, 
             },
           });
         } else {
@@ -326,11 +359,13 @@ async function handleMigrate(request, data) {
             data: {
               customerId: String(customerId),
               productId: it.productId,
+              variantId: it.variantId || null, 
               productTitle: it.productTitle,
               quantity: it.quantity,
               price: it.price,
               productImage: it.productImage,
               shop: it.shop,
+              variantTitle: it.variantTitle || null,
             },
           });
         }
