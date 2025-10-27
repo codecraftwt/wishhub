@@ -30,7 +30,7 @@
         hideMethod: 'fadeOut',
       };
 
-      const apiUrl = '{{ block.settings.api_url }}';
+      const apiUrl = 'https://wishhub.onrender.com';
       const customerId = '{{ customer.id }}' || null;
       
       // ===== PRODUCT CARD HEART FUNCTIONALITY =====
@@ -482,7 +482,7 @@
       console.log('Wishlist App: Initializing Alpine data');
       
       Alpine.data('wishlist', () => ({
-        apiUrl: '{{ block.settings.api_url }}',
+        apiUrl: 'https://wishhub.onrender.com',
         customerId: null,
         productId: null,
         variantId: null,

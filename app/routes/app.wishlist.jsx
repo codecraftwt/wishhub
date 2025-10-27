@@ -14,7 +14,7 @@ export async function loader({ request }) {
 
   const wishlists = await db.wishlist.findMany({
     where: shop ? { shop } : {},
-    orderBy: { createdAt: "desc" },
+    orderBy: { id: "desc" },
   });
 
   return json({ wishlists });
