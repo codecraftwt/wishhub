@@ -89,7 +89,7 @@ export default function Index() {
               </Text>
 
               <InlineStack gap="400" align="center">
-                <Button size="large" variant="primary" external url={themeEditorUrl}>
+                <Button size="large" variant="primary" url="/app/wishlist">
                   Open Wishlists
                 </Button>
                 <Button size="large" variant="secondary" url="/app/settings">
