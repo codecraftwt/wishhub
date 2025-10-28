@@ -598,23 +598,21 @@
           console.log('Wishlist App: Using variant ID:', this.variantId);
           this.isWishlisted = true;
           if (this.customerId) {
-            const payload = {
-              customerId: this.customerId,
-              isLoggedIn: 'true',
-              productId: this.productId,
-              variantId: this.variantId || '',
-              productTitle: this.productTitle,
-              quantity: '1',
-              price: this.price,
-              shop: '{{shop.permanent_domain}}',
-              productImage: this.productImage,
-              _action: 'CREATE'
-            };
+            const formData = new FormData();
+            formData.append('customerId', this.customerId);
+            formData.append('isLoggedIn', 'true');
+            formData.append('productId', this.productId);
+            formData.append('variantId', this.variantId || '');
+            formData.append('productTitle', this.productTitle);
+            formData.append('quantity', '1');
+            formData.append('price', this.price);
+            formData.append('shop', '{{shop.permanent_domain}}');
+            formData.append('productImage', this.productImage);
+            formData.append('_action', 'CREATE');
             try {
               const res = await fetch(`${this.apiUrl}/api/wishlist`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: formData,
                 credentials: 'include',
               });
               const data = await res.json().catch(() => ({}));
@@ -635,10 +633,10 @@
           } else {
             const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
             // Check if same product with same variant already exists
-            const existingIndex = guest.findIndex((i) =>
+            const existingIndex = guest.findIndex((i) => 
               i.productId === this.productId && i.variantId === this.variantId
             );
-
+            
             if (existingIndex === -1) {
               guest.push({
                 productId: this.productId,
@@ -666,19 +664,17 @@
           console.log('Wishlist App: Removing variant ID:', this.variantId);
           this.isWishlisted = false;
           if (this.customerId) {
-            const payload = {
-              customerId: this.customerId,
-              isLoggedIn: 'true',
-              productId: this.productId,
-              variantId: this.variantId || '',
-              shop: '{{shop.permanent_domain}}',
-              _action: 'DELETE'
-            };
+            const formData = new FormData();
+            formData.append('customerId', this.customerId);
+            formData.append('isLoggedIn', 'true');
+            formData.append('productId', this.productId);
+            formData.append('variantId', this.variantId || '');
+            formData.append('shop', '{{shop.permanent_domain}}');
+            formData.append('_action', 'DELETE');
             try {
               const res = await fetch(`${this.apiUrl}/api/wishlist`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: formData,
                 credentials: 'include',
               });
               const data = await res.json().catch(() => ({}));
@@ -698,7 +694,7 @@
             }
           } else {
             const guest = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
-            const idx = guest.findIndex((i) =>
+            const idx = guest.findIndex((i) => 
               i.productId === this.productId && i.variantId === this.variantId
             );
             if (idx > -1) {
