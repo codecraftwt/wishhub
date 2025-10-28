@@ -495,11 +495,11 @@
 
         async init() {
           console.log('Wishlist App: Alpine init called');
-          
+
           // Determine if we're in a heart icon or button context
           const heartEl = this.$el.closest('.catalog-heart');
           const buttonEl = this.$el.closest('.wishlist-page-button');
-          
+
           if (heartEl) {
             this.customerId = heartEl.dataset.customerId || null;
             this.productId = heartEl.dataset.productId || null;
@@ -519,6 +519,29 @@
           } else {
             console.log('Wishlist App: No context element found');
             return;
+          }
+
+          if (this.customerId && localStorage.getItem('guestWishlist')) {
+            const localStorageItems = JSON.parse(localStorage.getItem('guestWishlist') || '[]');
+            if (localStorageItems.length > 0) {
+              console.log('Wishlist App: Migrating localStorage data for customer:', this.customerId);
+              try {
+                const res = await fetch(`${this.apiUrl}/api/wishlist`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'MIGRATE', customerId: this.customerId, localStorageItems }),
+                  credentials: 'include',
+                });
+                if (res.ok) {
+                  localStorage.removeItem('guestWishlist');
+                  console.log('Wishlist App: Migration successful, localStorage cleared');
+                } else {
+                  console.error('Wishlist App: Migration failed');
+                }
+              } catch (e) {
+                console.error('Wishlist App: Migration error:', e);
+              }
+            }
           }
 
           await this.fetchWishlist();
