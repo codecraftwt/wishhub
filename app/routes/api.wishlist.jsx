@@ -146,7 +146,7 @@ async function handleUpsert(request, data) {
         customerId_productId_variantId_shop: {
           customerId: String(customerId),
           productId: String(productId),
-          variantId: variantId ? String(variantId) : "default", 
+          variantId: variantId ? String(variantId) : "default",
           shop: String(shop),
         },
       },
@@ -155,19 +155,19 @@ async function handleUpsert(request, data) {
         productTitle: cleanedProductTitle,
         productImage,
         price: parsedPrice,
-        variantId: variantId ? String(variantId) : null,
-        variantTitle: variantTitle || null, 
+        variantId: variantId ? String(variantId) : "default",
+        variantTitle: variantTitle || null,
       },
       create: {
         customerId: String(customerId),
         productId: String(productId),
-        variantId: variantId ? String(variantId) : null, 
+        variantId: variantId ? String(variantId) : "default",
         shop: String(shop),
         productTitle: cleanedProductTitle,
         quantity: parsedQty,
         price: parsedPrice,
         productImage,
-        variantTitle: variantTitle || null, 
+        variantTitle: variantTitle || null,
       },
     });
 
@@ -180,7 +180,7 @@ async function handleUpsert(request, data) {
         where: {
           customerId: String(customerId),
           productId: String(productId),
-          variantId: variantId ? String(variantId) : null,
+          variantId: variantId ? String(variantId) : "default",
           shop: String(shop),
         },
       });
@@ -193,21 +193,21 @@ async function handleUpsert(request, data) {
               productTitle: cleanedProductTitle,
               productImage,
               price: parsedPrice,
-              variantId: variantId ? String(variantId) : null, 
-              variantTitle: variantTitle || null, 
+              variantId: variantId ? String(variantId) : "default",
+              variantTitle: variantTitle || null,
             },
           })
         : await db.wishlist.create({
             data: {
               customerId: String(customerId),
               productId: String(productId),
-              variantId: variantId ? String(variantId) : null, 
+              variantId: variantId ? String(variantId) : "default",
               shop: String(shop),
               productTitle: cleanedProductTitle,
               quantity: parsedQty,
               price: parsedPrice,
               productImage,
-              variantTitle: variantTitle || null, 
+              variantTitle: variantTitle || null,
             },
           });
 
@@ -301,7 +301,7 @@ async function handleMigrate(request, data) {
           customerId_productId_variantId_shop: {
             customerId: String(customerId),
             productId: it.productId,
-            variantId: it.variantId || "default", 
+            variantId: it.variantId || "default",
             shop: it.shop,
           },
         },
@@ -310,19 +310,19 @@ async function handleMigrate(request, data) {
           productTitle: it.productTitle,
           price: it.price,
           productImage: it.productImage,
-          variantId: it.variantId || null, 
-          variantTitle: it.variantTitle || null, 
+          variantId: it.variantId || "default",
+          variantTitle: it.variantTitle || null,
         },
         create: {
           customerId: String(customerId),
           productId: it.productId,
-          variantId: it.variantId || null, 
+          variantId: it.variantId || "default",
           productTitle: it.productTitle,
           quantity: it.quantity,
           price: it.price,
           productImage: it.productImage,
           shop: it.shop,
-          variantTitle: it.variantTitle || null, 
+          variantTitle: it.variantTitle || null,
         },
       })
     );
@@ -337,7 +337,7 @@ async function handleMigrate(request, data) {
           where: {
             customerId: String(customerId),
             productId: it.productId,
-            variantId: it.variantId || null,
+            variantId: it.variantId || "default",
             shop: it.shop,
           },
         });
@@ -350,8 +350,8 @@ async function handleMigrate(request, data) {
               productTitle: it.productTitle || existing.productTitle,
               price: it.price ?? existing.price,
               productImage: it.productImage ?? existing.productImage,
-              variantId: it.variantId || existing.variantId, 
-              variantTitle: it.variantTitle || existing.variantTitle, 
+              variantId: it.variantId || "default",
+              variantTitle: it.variantTitle || existing.variantTitle,
             },
           });
         } else {
@@ -359,7 +359,7 @@ async function handleMigrate(request, data) {
             data: {
               customerId: String(customerId),
               productId: it.productId,
-              variantId: it.variantId || null, 
+              variantId: it.variantId || "default",
               productTitle: it.productTitle,
               quantity: it.quantity,
               price: it.price,

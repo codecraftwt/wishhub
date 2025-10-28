@@ -88,14 +88,6 @@ export default function Index() {
                 the magic.
               </Text>
 
-              <InlineStack gap="400" align="center">
-                <Button size="large" variant="primary" url="/app/wishlist">
-                  Open Wishlists
-                </Button>
-                <Button size="large" variant="secondary" url="/app/settings">
-                  Open Settings
-                </Button>
-              </InlineStack>
             </BlockStack>
           </Box>
         </motion.div>

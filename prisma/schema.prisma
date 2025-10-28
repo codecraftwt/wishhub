@@ -8,9 +8,10 @@ generator client {
 // Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  url      = "file:./dev.sqlite"
 }
 
 model Session {
@@ -41,14 +42,15 @@ model Wishlist {
   id           Int     @id @default(autoincrement())
   customerId   String
   productId    String
-  variantId    String? 
+  variantId    String  @default("default") 
   shop         String
   productTitle String
-  variantTitle String? 
-  quantity     Int
+  variantTitle String?
+  quantity     Int     @default(1)
   price        Float
   productImage String?
-  
+
   @@unique([customerId, productId, variantId, shop])
   @@map("wishlists")
 }
+
