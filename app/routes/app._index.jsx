@@ -16,12 +16,68 @@ import { authenticate } from "../shopify.server";
 import { useLoaderData } from "@remix-run/react";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
-  // const themeEditorUrl = `https://${session.shop}/admin/themes/current/editor?context=apps`;
-    const themeEditorUrl = `https://admin.shopify.com/store/wishhub-2/themes/151620616420/editor?context=apps`;
+  let themeId = null;
 
-  return { themeEditorUrl };
+  try {
+    const response = await admin.graphql(`
+      query {
+        themes(first: 10, roles: [MAIN]) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+    `);
+
+    const data = await response.json();
+
+    const mainTheme = data?.data?.themes?.edges?.[0]?.node;
+    if (mainTheme && mainTheme.id) {
+      const match = mainTheme.id.match(/\/(\d+)$/);
+      themeId = match ? match[1] : null; 
+    }
+  } catch (error) {
+    console.error("Failed to fetch live theme:", error);
+  }
+
+  if (!themeId) {
+    try {
+      const fallbackResponse = await admin.graphql(`
+        query {
+          themes(first: 1, roles: [PUBLISHED]) {
+            edges {
+              node {
+                id
+              }
+            }
+          }
+        }
+      `);
+      const fallbackData = await fallbackResponse.json();
+      const published = fallbackData?.data?.themes?.edges?.[0]?.node;
+      if (published?.id) {
+        const match = published.id.match(/\/(\d+)$/);
+        themeId = match ? match[1] : "current";
+      }
+    } catch (error) {
+      console.error("Fallback theme fetch failed:", error);
+    }
+  }
+
+  themeId = themeId || "current";
+
+  const shopDomain = session.shop.replace(".myshopify.com", "");
+  const themeEditorUrl = `https://admin.shopify.com/store/${shopDomain}/themes/${themeId}/editor?context=apps`;
+
+  return {
+    shop: session.shop,
+    themeId,
+    themeEditorUrl,
+  };
 };
 
 const fadeUp = {
@@ -112,7 +168,7 @@ export default function Index() {
                   customers a beautiful, seamless wishlist experience — instantly.
                 </Text>
 
-                <Layout>
+                <InlineStack gap="400" align="center">
                   {[
                     {
                       title: "Single-Click Activation",
@@ -127,35 +183,33 @@ export default function Index() {
                       desc: "Match your brand with effortless style settings.",
                     },
                   ].map((item, idx) => (
-                    <Layout.Section oneThird key={idx}>
-                      <Card padding="500" background="bg-surface" shadow="card">
-                        <BlockStack gap="200" align="center">
-                          <Text
-                            variant="headingLg"
-                            as="h3"
-                            alignment="center"
-                            style={{
-                              color: "#2C1A4C",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {item.title}
-                          </Text>
-                          <Text
-                            alignment="center"
-                            style={{
-                              color: "#666",
-                              fontSize: "1rem",
-                              lineHeight: "1.6",
-                            }}
-                          >
-                            {item.desc}
-                          </Text>
-                        </BlockStack>
-                      </Card>
-                    </Layout.Section>
+                    <Card key={idx} padding="500" background="bg-surface" shadow="card" style={{ flex: 1 }}>
+                      <BlockStack gap="200" align="center">
+                        <Text
+                          variant="headingLg"
+                          as="h3"
+                          alignment="center"
+                          style={{
+                            color: "#2C1A4C",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          alignment="center"
+                          style={{
+                            color: "#666",
+                            fontSize: "1rem",
+                            lineHeight: "1.6",
+                          }}
+                        >
+                          {item.desc}
+                        </Text>
+                      </BlockStack>
+                    </Card>
                   ))}
-                </Layout>
+                </InlineStack>
               </>
             ),
           },
@@ -404,45 +458,53 @@ export default function Index() {
                   WishHub keeps them engaged and brings them back to buy.
                 </Text>
 
-                <Layout>
+                <InlineStack gap="400" align="center">
                   {[
                     {
                       title: "Boosts Engagement",
-                      desc: "Keeps customers connected to products they love. 🔥",
+                      desc: (
+                        <>
+                          Keeps customers connected to products they love.{" "}
+                          <span style={{ fontSize: "1.5em" }}>🔥</span>
+                        </>
+                      ),
                     },
                     {
                       title: "Increases Conversions",
-                      desc: "Turns interest into sales by bringing shoppers back to purchase. 🚀",
+                      desc: (
+                        <>
+                          Turns interest into sales by bringing shoppers back to purchase.{" "}
+                          <span style={{ fontSize: "1.5em" }}>🚀</span>
+                        </>
+                      ),
                     },
                   ].map((item, idx) => (
-                    <Layout.Section oneHalf key={idx}>
-                      <Card padding="500" background="bg-surface" shadow="card">
-                        <BlockStack gap="200" align="center">
-                          <Text
-                            variant="headingLg"
-                            as="h3"
-                            alignment="center"
-                            style={{
-                              color: "#2C1A4C",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {item.title}
-                          </Text>
-                          <Text
-                            alignment="center"
-                            style={{
-                              color: "#666",
-                              fontSize: "1rem",
-                            }}
-                          >
-                            {item.desc}
-                          </Text>
-                        </BlockStack>
-                      </Card>
-                    </Layout.Section>
+                    <Card key={idx} padding="500" background="bg-surface" shadow="card" style={{ flex: 1 }}>
+                      <BlockStack gap="200" align="center">
+                        <Text
+                          variant="headingLg"
+                          as="h3"
+                          alignment="center"
+                          style={{
+                            color: "#2C1A4C",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text
+                          alignment="center"
+                          style={{
+                            color: "#666",
+                            fontSize: "1rem",
+                          }}
+                        >
+                          {item.desc}
+                        </Text>
+                      </BlockStack>
+                    </Card>
                   ))}
-                </Layout>
+                </InlineStack>
               </>
             ),
           },
@@ -462,11 +524,15 @@ export default function Index() {
                   }}
                 >
                   Activate WishHub now to add a powerful wishlist system across your
-                  store in seconds. No code. No complexity. Just magic. ✨
+                  store in seconds. No code. No complexity. Just magic.<span style={{ fontSize: "1.5em" }}>✨</span>
                 </Text>
 
                 <InlineStack gap="400" align="center">
-                  <Button size="large" variant="primary">
+                  <Button
+                    size="large"
+                    variant="primary"
+                    onClick={() => window.open(themeEditorUrl, "_blank")}
+                  >
                     Enable Wishlist
                   </Button>
                   <Button size="large" variant="secondary" external>
